@@ -17,15 +17,15 @@ import (
 	"time"
 )
 
-// ensureSelfExecutable устанавливает права chmod +x на сам файл скрипта
-func ensureSelfExecutable() {
-	filePath := "/root/setup_server"
-	if _, err := os.Stat(filePath); err == nil {
-		_ = os.Chmod(filePath, 0755)
-	}
+// === ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ===
+
+func run(name string, args ...string) {
+	cmd := exec.Command(name, args...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	_ = cmd.Run()
 }
 
-// Генерация случайной строки заданной длины
 func generateRandomString(n int) string {
 	const letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 	ret := make([]byte, n)
@@ -36,151 +36,157 @@ func generateRandomString(n int) string {
 	return string(ret)
 }
 
-func main() {
-	if os.Getuid() != 0 {
-		log.Fatalf("Ошибка: Скрипт должен быть запущен с правами root (sudo)")
-	}
-
-	ensureSelfExecutable()
-
-	reader := bufio.NewReader(os.Stdin)
-	fmt.Print("Введите новый порт для SSH (например, 2222): ")
-	sshPortStr, err := reader.ReadString('\n')
-	if err != nil {
-		log.Fatalf("Ошибка при вводе порта: %v", err)
-	}
-	sshPortStr = strings.TrimSpace(sshPortStr)
-	if sshPortStr == "" {
-		log.Fatalf("Ошибка: Порт не может быть пустым")
-	}
-
-	// Генерируем все случайные данные для безопасности
-	secretPath := generateRandomString(12) // Секретный путь URL
-	adminUser := generateRandomString(8)   // Рандомный логин
-	adminPass := generateRandomString(14)  // Рандомный пароль
-
-	fmt.Printf("\n[1/6] Обновление системы (apt update && upgrade)...\n")
-	updateSystem()
-
-	fmt.Printf("\n[2/6] Настройка лимитов открытых файлов (65535)...\n")
-	setUlimit()
-
-	fmt.Printf("\n[3/6] Смена порта SSH на %s...\n", sshPortStr)
-	changeSSHPort(sshPortStr)
-
-	fmt.Printf("\n[4/6] Настройка Firewall (UFW) + порты 3, 80, 443, 2053...\n")
-	setupFirewall(sshPortStr)
-
-	fmt.Printf("\n[5/6] Прямая установка панели 3x-ui...\n")
-	install3xUIManual()
-
-	fmt.Printf("\n[6/6] Установка секретных настроек (порт 3, логин, пароль, путь)...\n")
-	configure3xUI(secretPath, adminUser, adminPass)
-
-	serverIP := getIP()
-	fmt.Println("\n✅ Все операции абсолютно успешно завершены!")
-	fmt.Printf("\n--------------------------------------------------\n")
-	fmt.Printf("🚀 ДАННЫЕ ДЛЯ ВХОДА В ПАНЕЛЬ:\n")
-	fmt.Printf("--------------------------------------------------\n")
-	fmt.Printf("🔗 Ссылка: http%s//%s:3/%s/\n", ":", serverIP, secretPath)
-	fmt.Printf("👤 Логин:  %s\n", adminUser)
-	fmt.Printf("🔑 Пароль: %s\n", adminPass)
-	fmt.Printf("--------------------------------------------------\n")
-	fmt.Printf("\n⚠️ ВНИМАНИЕ: Обязательно сохраните эти данные!\n")
-	fmt.Printf("⚠️ Просто по http://%s:3 зайти нельзя (будет 404).\n", serverIP)
-	fmt.Printf("⚠️ Новый SSH порт: %s\n\n", sshPortStr)
-}
-
-func runCommand(name string, args ...string) error {
-	cmd := exec.Command(name, args...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	return cmd.Run()
-}
-
 func getIP() string {
 	out, err := exec.Command("curl", "-s", "https://api.ipify.org").Output()
 	if err != nil {
-		return "<IP_сервера>"
+		return "<IP_СЕРВЕРА>"
 	}
 	return strings.TrimSpace(string(out))
 }
 
-func updateSystem() {
-	_ = runCommand("apt-get", "update")
-	cmd := exec.Command("apt-get", "upgrade", "-y", "-o", "Dpkg::Options::=--force-confdef", "-o", "Dpkg::Options::=--force-confold")
-	cmd.Env = append(os.Environ(), "DEBIAN_FRONTEND=noninteractive")
-	_ = cmd.Run()
+// === ОСНОВНЫЕ ШАГИ ===
+
+func main() {
+	if os.Getuid() != 0 {
+		log.Fatalf("Ошибка: запустите скрипт от имени root (sudo)")
+	}
+
+	// 1. Запрос порта SSH
+	reader := bufio.NewReader(os.Stdin)
+	fmt.Print("👉 Введите новый порт для SSH (например, 9049): ")
+	sshPort, _ := reader.ReadString('\n')
+	sshPort = strings.TrimSpace(sshPort)
+	if sshPort == "" {
+		log.Fatal("Порт не может быть пустым")
+	}
+
+	// Генерация данных для панели
+	secretPath := generateRandomString(12)
+	adminUser := generateRandomString(8)
+	adminPass := generateRandomString(14)
+
+	fmt.Println("\n[1/7] 🛠 Обновление системы (apt update & upgrade)...")
+	os.Setenv("DEBIAN_FRONTEND", "noninteractive")
+	run("apt-get", "update")
+	run("apt-get", "-y", "-o", "Dpkg::Options::=--force-confdef", "-o", "Dpkg::Options::=--force-confold", "upgrade")
+
+	fmt.Println("\n[2/7] 🚀 Настройка лимитов (ulimit -n 65535)...")
+	setUlimits()
+
+	fmt.Println("\n[3/7] 🔒 Смена порта SSH на", sshPort)
+	applySSHPort(sshPort)
+
+	fmt.Println("\n[4/7] 🧱 Настройка Firewall (UFW)...")
+	configureUFW(sshPort)
+
+	fmt.Println("\n[5/7] 📥 Установка 3x-ui (прямая загрузка)...")
+	install3xUI()
+
+	fmt.Println("\n[6/7] ⚙️ Применение случайных настроек безопасности...")
+	applyPanelSettings(secretPath, adminUser, adminPass)
+
+	fmt.Println("\n[7/7] 🧹 Финальная проверка путей...")
+	finalSymlinks()
+
+	// ВЫВОД РЕЗУЛЬТАТОВ
+	ip := getIP()
+	fmt.Println("\n" + strings.Repeat("=", 50))
+	fmt.Println("✅ УСТАНОВКА ЗАВЕРШЕНА УСПЕШНО!")
+	fmt.Println(strings.Repeat("=", 50))
+	fmt.Printf("🌐 Ссылка: http://%s:3/%s/\n", ip, secretPath)
+	fmt.Printf("👤 Логин:  %s\n", adminUser)
+	fmt.Printf("🔑 Пароль: %s\n", adminPass)
+	fmt.Println(strings.Repeat("-", 50))
+	fmt.Printf("📡 Новый SSH порт: %s\n", sshPort)
+	fmt.Println(strings.Repeat("=", 50))
+	fmt.Println("⚠️ Заходить ТОЛЬКО по полной ссылке (иначе 404)!")
+	fmt.Println("Команда 'x-ui' теперь доступна в консоли.")
 }
 
-func setUlimit() {
+func setUlimits() {
 	var rLimit syscall.Rlimit
 	if err := syscall.Getrlimit(syscall.RLIMIT_NOFILE, &rLimit); err == nil {
 		rLimit.Max = 65535
 		rLimit.Cur = 65535
 		_ = syscall.Setrlimit(syscall.RLIMIT_NOFILE, &rLimit)
 	}
-	f, err := os.OpenFile("/etc/security/limits.conf", os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
-	if err == nil {
-		defer f.Close()
-		_, _ = f.WriteString("\n* soft nofile 65535\n* hard nofile 65535\nroot soft nofile 65535\nroot hard nofile 65535\n")
-	}
+	content := "\n* soft nofile 65535\n* hard nofile 65535\nroot soft nofile 65535\nroot hard nofile 65535\n"
+	f, _ := os.OpenFile("/etc/security/limits.conf", os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
+	defer f.Close()
+	_, _ = f.WriteString(content)
 }
 
-func changeSSHPort(port string) {
-	config, err := os.ReadFile("/etc/ssh/sshd_config")
-	if err == nil {
-		re := regexp.MustCompile(`(?m)^#?Port\s+\d+`)
-		newConfig := re.ReplaceAll(config, []byte("Port "+port))
-		_ = os.WriteFile("/etc/ssh/sshd_config", newConfig, 0644)
-	}
+func applySSHPort(port string) {
+	// Редактируем стандартный конфиг
+	cfg, _ := os.ReadFile("/etc/ssh/sshd_config")
+	re := regexp.MustCompile(`(?m)^#?Port\s+\d+`)
+	newCfg := re.ReplaceAll(cfg, []byte("Port "+port))
+	_ = os.WriteFile("/etc/ssh/sshd_config", newCfg, 0644)
+
+	// Ubuntu 22.10+ (ssh.socket)
 	out, _ := exec.Command("systemctl", "list-unit-files", "ssh.socket").Output()
 	if strings.Contains(string(out), "ssh.socket") {
 		_ = os.MkdirAll("/etc/systemd/system/ssh.socket.d", 0755)
-		override := fmt.Sprintf("[Socket]\nListenStream=\nListenStream=%s\n", port)
-		_ = os.WriteFile("/etc/systemd/system/ssh.socket.d/listen.conf", []byte(override), 0644)
-		_ = runCommand("systemctl", "daemon-reload")
-		_ = runCommand("systemctl", "restart", "ssh.socket")
+		data := fmt.Sprintf("[Socket]\nListenStream=\nListenStream=%s\n", port)
+		_ = os.WriteFile("/etc/systemd/system/ssh.socket.d/listen.conf", []byte(data), 0644)
+		run("systemctl", "daemon-reload")
+		run("systemctl", "restart", "ssh.socket")
 	}
-	if err := runCommand("systemctl", "restart", "sshd"); err != nil {
-		_ = runCommand("systemctl", "restart", "ssh")
+	if err := exec.Command("systemctl", "restart", "sshd").Run(); err != nil {
+		run("systemctl", "restart", "ssh")
 	}
 }
 
-func setupFirewall(sshPort string) {
-	_ = runCommand("apt-get", "install", "-y", "ufw")
-	_ = runCommand("ufw", "allow", sshPort+"/tcp")
-	_ = runCommand("ufw", "allow", "3/tcp")
-	_ = runCommand("ufw", "allow", "80/tcp")
-	_ = runCommand("ufw", "allow", "443/tcp")
-	_ = runCommand("ufw", "allow", "2053/tcp")
-	_ = exec.Command("ufw", "--force", "enable").Run()
+func configureUFW(sshPort string) {
+	run("apt-get", "install", "-y", "ufw")
+	run("ufw", "allow", sshPort+"/tcp")
+	run("ufw", "allow", "3/tcp")
+	run("ufw", "allow", "80/tcp")
+	run("ufw", "allow", "443/tcp")
+	run("ufw", "allow", "2053/tcp")
+	run("ufw", "--force", "enable")
 }
 
-func install3xUIManual() {
+func install3xUI() {
+	// Получаем архитектуру и версию
 	cmd := exec.Command("bash", "-c", `curl -s https://api.github.com/repos/mhsanaei/3x-ui/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/'`)
-	out, _ := cmd.Output()
-	tag := strings.TrimSpace(string(out))
+	tagOut, _ := cmd.Output()
+	tag := strings.TrimSpace(string(tagOut))
 	if tag == "" {
 		tag = "v2.4.3"
 	}
 
-	url := fmt.Sprintf("https://github.com/mhsanaei/3x-ui/releases/download/%s/x-ui-linux-amd64.tar.gz", tag)
-	_ = runCommand("curl", "-L", "-o", "/tmp/x-ui.tar.gz", url)
-	_ = runCommand("rm", "-rf", "/usr/local/x-ui")
-	_ = runCommand("tar", "-zxf", "/tmp/x-ui.tar.gz", "-C", "/usr/local/")
+	arch := "amd64"
+	uOut, _ := exec.Command("uname", "-m").Output()
+	if strings.Contains(string(uOut), "arm") || strings.Contains(string(uOut), "aarch64") {
+		arch = "arm64"
+	}
 
-	_ = runCommand("chmod", "+x", "/usr/local/x-ui/x-ui", "/usr/local/x-ui/bin/xray-linux-amd64")
-	_ = runCommand("cp", "/usr/local/x-ui/x-ui.service.debian", "/etc/systemd/system/x-ui.service")
-	_ = runCommand("systemctl", "daemon-reload")
-	_ = runCommand("systemctl", "enable", "x-ui")
-	_ = runCommand("systemctl", "start", "x-ui")
+	url := fmt.Sprintf("https://github.com/mhsanaei/3x-ui/releases/download/%s/x-ui-linux-%s.tar.gz", tag, arch)
+	run("curl", "-L", "-o", "/tmp/x-ui.tar.gz", url)
+	run("rm", "-rf", "/usr/local/x-ui")
+	run("tar", "-zxf", "/tmp/x-ui.tar.gz", "-C", "/usr/local/")
+
+	run("chmod", "+x", "/usr/local/x-ui/x-ui", "/usr/local/x-ui/bin/xray-linux-amd64", "/usr/local/x-ui/x-ui.sh")
+	run("cp", "-f", "/usr/local/x-ui/x-ui.service.debian", "/etc/systemd/system/x-ui.service")
+	run("systemctl", "daemon-reload")
+	run("systemctl", "enable", "x-ui")
+	run("systemctl", "start", "x-ui")
 }
 
-func configure3xUI(path, user, pass string) {
+func applyPanelSettings(path, user, pass string) {
 	time.Sleep(3 * time.Second)
 	fullPath := "/" + path + "/"
-	// Установка случайных пользователя, пароля и пути
-	_ = runCommand("/usr/local/x-ui/x-ui", "setting", "-username", user, "-password", pass, "-port", "3", "-webBasePath", fullPath)
-	_ = runCommand("systemctl", "restart", "x-ui")
+	// Используем внутренний CLI x-ui для настройки
+	_ = exec.Command("/usr/local/x-ui/x-ui", "setting", "-username", user, "-password", pass, "-port", "3", "-webBasePath", fullPath).Run()
+	run("systemctl", "restart", "x-ui")
+}
+
+func finalSymlinks() {
+	// Создаем ссылки, чтобы команда x-ui работала везде
+	_ = os.Remove("/usr/bin/x-ui")
+	_ = os.Remove("/usr/local/bin/x-ui")
+	run("ln", "-s", "/usr/local/x-ui/x-ui.sh", "/usr/bin/x-ui")
+	run("ln", "-s", "/usr/local/x-ui/x-ui.sh", "/usr/local/bin/x-ui")
+	run("hash", "-r")
 }

@@ -1,7 +1,3 @@
-# Бинарные файлы (скомпилированные)
-setup_server
-setup_server_arm64
-
 # Зависимости и логи
 vendor/
 *.log

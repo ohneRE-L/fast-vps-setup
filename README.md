@@ -36,17 +36,3 @@ bash -c "$(curl -sL https://raw.githubusercontent.com/ohneRE-L/fast-vps-setup/ma
 > **ВНИМАНИЕ:** Если вы попробуете зайти просто по `http://IP:3`, сервер выдаст ошибку 404. Это сделано специально, чтобы скрыть панель от сканеров. Используйте только полную секретную ссылку!
 
 ---
-
-## ⚙️ Технические детали для разработчика
-
-Если вы вносите изменения в `main.go`, не забудьте пересобрать бинарный файл перед загрузкой на GitHub:
-
-```bash
-# Сборка под Linux AMD64
-GOOS=linux GOARCH=amd64 go build -o setup_server main.go
-
-# Принудительная загрузка обновленного бинарника в GitHub
-git add -f setup_server
-git commit -m "Update binary"
-git push origin main
-```

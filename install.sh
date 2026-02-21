@@ -1,7 +1,16 @@
 #!/bin/bash
-# Скачиваем бинарник
-curl -L -o /root/setup_server https://github.com/ВАШ_ЛОГИН/РЕПО/raw/main/setup_server
-# Даем права
-chmod +x /root/setup_server
+
+# Цвета для красоты
+GREEN='\033[0;32m'
+NC='\033[0m'
+
+echo -e "${GREEN}>>> Downloading VPS Shielder...${NC}"
+
+# Скачиваем бинарник во временную папку
+curl -sL -o /usr/local/bin/setup_server "https://raw.githubusercontent.com/ohneRE-L/fast-vps-setup/main/setup_server"
+
+# Даем права на выполнение
+chmod +x /usr/local/bin/setup_server
+
 # Запускаем
-/root/setup_server
+/usr/local/bin/setup_server

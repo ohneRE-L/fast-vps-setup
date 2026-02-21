@@ -17,8 +17,6 @@ import (
 	"time"
 )
 
-// === ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ===
-
 func run(name string, args ...string) {
 	cmd := exec.Command(name, args...)
 	cmd.Stdout = os.Stdout
@@ -45,14 +43,11 @@ func getIP() string {
 	return res
 }
 
-// === ОСНОВНЫЕ ШАГИ ===
-
 func main() {
 	if os.Getuid() != 0 {
 		log.Fatalf("Ошибка: запустите скрипт от имени root (sudo)")
 	}
 
-	// 1. Запрос порта SSH
 	reader := bufio.NewReader(os.Stdin)
 	fmt.Print("👉 Введите новый порт для SSH (например, 9049): ")
 	sshPort, _ := reader.ReadString('\n')
@@ -61,32 +56,30 @@ func main() {
 		log.Fatal("Порт не может быть пустым")
 	}
 
-	// Данные для безопасности
 	secretPath := generateRandomString(12)
 	adminUser := generateRandomString(8)
 	adminPass := generateRandomString(14)
 
-	fmt.Println("\n[1/6] 🛠 Обновление системы (apt update & upgrade)...")
+	fmt.Println("\n[1/6] 🛠 Обновление системы...")
 	os.Setenv("DEBIAN_FRONTEND", "noninteractive")
 	run("apt-get", "update")
 	run("apt-get", "-y", "-o", "Dpkg::Options::=--force-confdef", "-o", "Dpkg::Options::=--force-confold", "upgrade")
 
-	fmt.Println("\n[2/6] 🚀 Настройка лимитов (ulimit -n 65535)...")
+	fmt.Println("\n[2/6] 🚀 Настройка лимитов...")
 	setUlimits()
 
 	fmt.Println("\n[3/6] 🔒 Смена порта SSH на", sshPort)
 	applySSHPort(sshPort)
 
-	fmt.Println("\n[4/6] 🧱 Настройка Firewall (UFW)...")
+	fmt.Println("\n[4/6] 🧱 Настройка Firewall...")
 	configureUFW(sshPort)
 
-	fmt.Println("\n[5/6] 📥 Установка 3x-ui через официальный скрипт...")
-	install3xUIOfficial(adminUser, adminPass, secretPath)
+	fmt.Println("\n[5/6] 📥 Установка 3x-ui...")
+	install3xUIOfficial()
 
 	fmt.Println("\n[6/6] ⚙️ Финализация настроек...")
 	finalConfig(adminUser, adminPass, secretPath)
 
-	// ВЫВОД РЕЗУЛЬТАТОВ
 	ip := getIP()
 	fmt.Println("\n" + strings.Repeat("=", 50))
 	fmt.Println("✅ УСТАНОВКА ЗАВЕРШЕНА!")
@@ -97,7 +90,6 @@ func main() {
 	fmt.Println(strings.Repeat("-", 50))
 	fmt.Printf("📡 Новый SSH порт: %s\n", sshPort)
 	fmt.Println(strings.Repeat("=", 50))
-	fmt.Println("⚠️ Заходить ТОЛЬКО по полной ссылке!")
 	fmt.Println("Команда 'x-ui' доступна в консоли.")
 }
 
@@ -124,7 +116,6 @@ func applySSHPort(port string) {
 		_ = os.WriteFile("/etc/ssh/sshd_config", newCfg, 0644)
 	}
 
-	// Ubuntu 22.10+ (ssh.socket)
 	out, _ := exec.Command("systemctl", "list-unit-files", "ssh.socket").Output()
 	if strings.Contains(string(out), "ssh.socket") {
 		_ = os.MkdirAll("/etc/systemd/system/ssh.socket.d", 0755)
@@ -149,15 +140,9 @@ func configureUFW(sshPort string) {
 	run("ufw", "--force", "enable")
 }
 
-func install3xUIOfficial(user, pass, path string) {
-	// Официальная команда, которую вы просили.
-	// Мы передаем ответы через Stdin:
-	// y (customize) -> user -> pass -> 3 (port) -> /path/ (web base path)
+func install3xUIOfficial() {
 	installCmd := `bash <(curl -Ls https://raw.githubusercontent.com/mhsanaei/3x-ui/master/install.sh)`
-
-	// Подготовка ответов для скрипта (y - да, кастомизировать)
-	answers := fmt.Sprintf("y\n%s\n%s\n3\n/%s/\n", user, pass, path)
-
+	answers := "n\n"
 	cmd := exec.Command("bash", "-c", installCmd)
 	cmd.Stdin = strings.NewReader(answers)
 	cmd.Stdout = os.Stdout
@@ -166,20 +151,13 @@ func install3xUIOfficial(user, pass, path string) {
 }
 
 func finalConfig(user, pass, path string) {
-	// На случай, если официальный скрипт проигнорировал Stdin (бывает в новых версиях),
-	// принудительно выставляем настройки через CLI утилиту x-ui.
-	time.Sleep(2 * time.Second)
+	time.Sleep(5 * time.Second)
 	fullPath := "/" + path + "/"
 	_ = exec.Command("/usr/local/x-ui/x-ui", "setting", "-username", user, "-password", pass, "-port", "3", "-webBasePath", fullPath).Run()
 
-	// Создаем симлинк для команды x-ui, если скрипт его не создал
 	_ = os.Remove("/usr/bin/x-ui")
-	_ = runCommand("ln", "-s", "/usr/local/x-ui/x-ui.sh", "/usr/bin/x-ui")
+	_ = exec.Command("ln", "-s", "/usr/local/x-ui/x-ui.sh", "/usr/bin/x-ui").Run()
 
 	run("systemctl", "restart", "x-ui")
 	run("hash", "-r")
-}
-
-func runCommand(name string, args ...string) error {
-	return exec.Command(name, args...).Run()
 }

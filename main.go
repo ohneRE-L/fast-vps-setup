@@ -77,6 +77,9 @@ func main() {
 	fmt.Println("\n[5/6] 📥 Установка 3x-ui...")
 	install3xUIOfficial()
 
+	fmt.Println("\n[5.5/6] 📥 Установка telemt...")
+	installTelemt()
+
 	fmt.Println("\n[6/6] ⚙️ Финализация настроек...")
 	finalConfig(adminUser, adminPass, secretPath)
 
@@ -133,11 +136,18 @@ func applySSHPort(port string) {
 func configureUFW(sshPort string) {
 	run("apt-get", "install", "-y", "ufw")
 	run("ufw", "allow", sshPort+"/tcp")
-	run("ufw", "allow", "3/tcp")
-	run("ufw", "allow", "80/tcp")
-	run("ufw", "allow", "443/tcp")
-	run("ufw", "allow", "2053/tcp")
+	run("ufw", "allow", "443/tcp", "comment", "VPN")
+	run("ufw", "allow", "3/tcp", "comment", "PANEL")
+	run("ufw", "allow", "10443/tcp", "comment", "SUBSCRIPTION")
+	run("ufw", "allow", "8443/tcp")
+	run("ufw", "deny", "9000/tcp")
+	run("ufw", "deny", "40000/tcp")
 	run("ufw", "--force", "enable")
+}
+
+func installTelemt() {
+	cmd := `curl -fsSL https://raw.githubusercontent.com/telemt/telemt/main/install.sh | sh -s -- --port 8443`
+	run("bash", "-c", cmd)
 }
 
 func install3xUIOfficial() {

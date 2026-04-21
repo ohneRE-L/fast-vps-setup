@@ -58,6 +58,7 @@ func main() {
 
 	install3xUI := askYesNo("Установить 3x-ui?", reader)
 	installTelemtChoice := askYesNo("Установить telemt?", reader)
+	installWarpWatchdogChoice := askYesNo("Установить WARP watchdog?", reader)
 
 	secretPath := generateRandomString(12)
 	adminUser := generateRandomString(8)
@@ -90,6 +91,11 @@ func main() {
 	if install3xUI {
 		fmt.Println("\n[6/6] ⚙️ Финализация настроек...")
 		finalConfig(adminUser, adminPass, secretPath)
+	}
+
+	if installWarpWatchdogChoice {
+		fmt.Println("\n[6.5/6] 🛡 Настройка WARP Watchdog...")
+		setupWarpWatchdog()
 	}
 
 	ip := getIP()
@@ -176,6 +182,41 @@ func configureUFW(sshPort string) {
 func installTelemt() {
 	cmd := `curl -fsSL https://raw.githubusercontent.com/telemt/telemt/main/install.sh | sh -s -- --port 8443`
 	run("bash", "-c", cmd)
+}
+
+func setupWarpWatchdog() {
+	script := `#!/bin/bash
+
+LOG_FILE="/var/log/warp-watchdog.log"
+WARP_PORT="40000"
+
+log() {
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" >> "$LOG_FILE"
+}
+
+# Проверяем, слушает ли warp-svc порт 40000
+if ss -lntp | grep -q ":$WARP_PORT.*warp-svc"; then
+    # Порт слушается, WARP в порядке
+    exit 0
+else
+    log "⚠️  Порт $WARP_PORT не слушается или процесс warp-svc не отвечает. Перезапускаем WARP..."
+
+    # Перезапускаем сервис WARP
+    systemctl restart warp-svc
+
+    # Небольшая пауза, чтобы сервис успел запуститься
+    sleep 10
+
+    # Повторная проверка
+    if ss -lntp | grep -q ":$WARP_PORT.*warp-svc"; then
+        log "✅ После перезапуска WARP порт $WARP_PORT снова в порядке."
+    else
+        log "❌ Критическая ошибка: WARP не смог запуститься или порт $WARP_PORT не открылся."
+    fi
+fi
+`
+	_ = os.WriteFile("/usr/local/bin/warp-watchdog.sh", []byte(script), 0755)
+	run("chmod", "+x", "/usr/local/bin/warp-watchdog.sh")
 }
 
 func install3xUIOfficial() {

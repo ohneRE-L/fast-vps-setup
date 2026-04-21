@@ -56,6 +56,9 @@ func main() {
 		log.Fatal("Порт не может быть пустым")
 	}
 
+	install3xUI := askYesNo("Установить 3x-ui?", reader)
+	installTelemtChoice := askYesNo("Установить telemt?", reader)
+
 	secretPath := generateRandomString(12)
 	adminUser := generateRandomString(8)
 	adminPass := generateRandomString(14)
@@ -74,26 +77,51 @@ func main() {
 	fmt.Println("\n[4/6] 🧱 Настройка Firewall...")
 	configureUFW(sshPort)
 
-	fmt.Println("\n[5/6] 📥 Установка 3x-ui...")
-	install3xUIOfficial()
+	if install3xUI {
+		fmt.Println("\n[5/6] 📥 Установка 3x-ui...")
+		install3xUIOfficial()
+	}
 
-	fmt.Println("\n[5.5/6] 📥 Установка telemt...")
-	installTelemt()
+	if installTelemtChoice {
+		fmt.Println("\n[5.5/6] 📥 Установка telemt...")
+		installTelemt()
+	}
 
-	fmt.Println("\n[6/6] ⚙️ Финализация настроек...")
-	finalConfig(adminUser, adminPass, secretPath)
+	if install3xUI {
+		fmt.Println("\n[6/6] ⚙️ Финализация настроек...")
+		finalConfig(adminUser, adminPass, secretPath)
+	}
 
 	ip := getIP()
 	fmt.Println("\n" + strings.Repeat("=", 50))
 	fmt.Println("✅ УСТАНОВКА ЗАВЕРШЕНА!")
 	fmt.Println(strings.Repeat("=", 50))
-	fmt.Printf("🌐 Ссылка: http://%s:3/%s/\n", ip, secretPath)
-	fmt.Printf("👤 Логин:  %s\n", adminUser)
-	fmt.Printf("🔑 Пароль: %s\n", adminPass)
-	fmt.Println(strings.Repeat("-", 50))
+	if install3xUI {
+		fmt.Printf("🌐 Ссылка: http://%s:3/%s/\n", ip, secretPath)
+		fmt.Printf("👤 Логин:  %s\n", adminUser)
+		fmt.Printf("🔑 Пароль: %s\n", adminPass)
+		fmt.Println(strings.Repeat("-", 50))
+	}
 	fmt.Printf("📡 Новый SSH порт: %s\n", sshPort)
 	fmt.Println(strings.Repeat("=", 50))
-	fmt.Println("Команда 'x-ui' доступна в консоли.")
+	if install3xUI {
+		fmt.Println("Команда 'x-ui' доступна в консоли.")
+	}
+}
+
+func askYesNo(prompt string, reader *bufio.Reader) bool {
+	for {
+		fmt.Printf("👉 %s (y/n): ", prompt)
+		input, _ := reader.ReadString('\n')
+		input = strings.ToLower(strings.TrimSpace(input))
+		if input == "y" || input == "yes" {
+			return true
+		}
+		if input == "n" || input == "no" {
+			return false
+		}
+		fmt.Println("Пожалуйста, введите 'y' или 'n'")
+	}
 }
 
 func setUlimits() {

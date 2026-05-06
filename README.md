@@ -40,3 +40,49 @@ bash -c "$(curl -sL https://raw.githubusercontent.com/ohneRE-L/fast-vps-setup/ma
 > **ВНИМАНИЕ:** Если вы попробуете зайти просто по `http://IP:3`, сервер выдаст ошибку 404. Это сделано специально, чтобы скрыть панель от сканеров. Используйте только полную секретную ссылку!
 
 ---
+
+# Fast VPS Setup (3x-ui + Security) 🚀 [EN]
+
+An automated **Go** script for fast and secure configuration of a new VPS server in one command.
+
+**Multi-language support:** The script supports both **Russian** and **English** languages (selectable at startup).
+
+## 🛠 What does this script do?
+
+1.  **System Update:** Runs `apt update && apt upgrade -y`.
+2.  **Optimization (ulimit):** Increases open files limit to `65535` for stable proxy performance under load.
+3.  **SSH Port (optional):** Moves SSH to your chosen port (fully supporting Ubuntu 22.04/24.04 and `ssh.socket` mechanisms).
+4.  **Firewall (UFW, optional):** Careful configuration with comments for convenience:
+    *   **SSH**: `#SSH` — your current or new port.
+    *   **443/tcp**: `#VPN` — for proxy traffic.
+    *   **3/tcp**: `#PANEL` — for 3x-ui management.
+    *   **10443/tcp**: `#SUBSCRIPTION` — for subscriptions.
+    *   **8443/tcp**: For **telemt**.
+5.  **Optional Utilities Installation:** You choose whether to install **3x-ui**, **telemt**, **WARP watchdog**, **Fail2Ban**, and whether to enable **BBR**.
+6.  **WARP Watchdog:** A script to monitor Cloudflare WARP on port 40000 with automatic restart upon failure.
+7.  **BBR Acceleration:** Enables the Google BBR algorithm to minimize latency and increase proxy speed.
+8.  **Fail2Ban:** Protects SSH from brute-force attacks by automatically blocking suspicious IPs.
+9.  **Maximum Security:** If 3x-ui is selected, the script generates a **random login**, **random password**, and a **random secret path** (Web Base Path).
+
+---
+
+## 🚀 Installation
+
+Simply copy and paste this command into the terminal of your new server:
+
+```bash
+bash -c "$(curl -sL https://raw.githubusercontent.com/ohneRE-L/fast-vps-setup/main/install.sh)"
+```
+
+---
+
+## 🔑 After Installation
+
+Upon completion, the script will output a frame in the console with your login details:
+*   **Full URL** (including the secret path)
+*   **Login** (randomly generated)
+*   **Password** (randomly generated)
+
+> **WARNING:** If you try to access `http://IP:3` directly, the server will return a 404 error. This is intentional to hide the panel from scanners. Only use the full secret link!
+
+---

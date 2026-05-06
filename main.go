@@ -49,13 +49,18 @@ func main() {
 	}
 
 	reader := bufio.NewReader(os.Stdin)
-	fmt.Print("👉 Введите новый порт для SSH (например, 9049): ")
-	sshPort, _ := reader.ReadString('\n')
-	sshPort = strings.TrimSpace(sshPort)
-	if sshPort == "" {
-		log.Fatal("Порт не может быть пустым")
+	changeSSHPortChoice := askYesNo("Изменить порт SSH?", reader)
+	sshPort := "22"
+	if changeSSHPortChoice {
+		fmt.Print("👉 Введите новый порт для SSH (например, 9049): ")
+		input, _ := reader.ReadString('\n')
+		sshPort = strings.TrimSpace(input)
+		if sshPort == "" {
+			log.Fatal("Порт не может быть пустым")
+		}
 	}
 
+	configureUFWChoice := askYesNo("Настроить Firewall (UFW)?", reader)
 	install3xUI := askYesNo("Установить 3x-ui?", reader)
 	installTelemtChoice := askYesNo("Установить telemt?", reader)
 	installWarpWatchdogChoice := askYesNo("Установить WARP watchdog?", reader)
@@ -79,11 +84,15 @@ func main() {
 		enableBBR()
 	}
 
-	fmt.Println("\n[3/6] 🔒 Смена порта SSH на", sshPort)
-	applySSHPort(sshPort)
+	if changeSSHPortChoice {
+		fmt.Println("\n[3/6] 🔒 Смена порта SSH на", sshPort)
+		applySSHPort(sshPort)
+	}
 
-	fmt.Println("\n[4/6] 🧱 Настройка Firewall...")
-	configureUFW(sshPort)
+	if configureUFWChoice {
+		fmt.Println("\n[4/6] 🧱 Настройка Firewall...")
+		configureUFW(sshPort)
+	}
 
 	if installFail2BanChoice {
 		fmt.Println("\n[4.5/6] 🛡 Установка Fail2Ban...")
@@ -120,7 +129,7 @@ func main() {
 		fmt.Printf("🔑 Пароль: %s\n", adminPass)
 		fmt.Println(strings.Repeat("-", 50))
 	}
-	fmt.Printf("📡 Новый SSH порт: %s\n", sshPort)
+	fmt.Printf("📡 SSH порт: %s\n", sshPort)
 	fmt.Println(strings.Repeat("=", 50))
 	if install3xUI {
 		fmt.Println("Команда 'x-ui' доступна в консоли.")
@@ -181,13 +190,13 @@ func applySSHPort(port string) {
 
 func configureUFW(sshPort string) {
 	run("apt-get", "install", "-y", "ufw")
-	run("ufw", "allow", sshPort+"/tcp")
+	run("ufw", "allow", sshPort+"/tcp", "comment", "SSH")
 	run("ufw", "allow", "443/tcp", "comment", "VPN")
 	run("ufw", "allow", "3/tcp", "comment", "PANEL")
 	run("ufw", "allow", "10443/tcp", "comment", "SUBSCRIPTION")
 	run("ufw", "allow", "8443/tcp")
-	run("ufw", "deny", "9000/tcp")
-	run("ufw", "deny", "40000/tcp")
+	run("ufw", "deny", "9000")
+	run("ufw", "deny", "40000")
 	run("ufw", "--force", "enable")
 }
 

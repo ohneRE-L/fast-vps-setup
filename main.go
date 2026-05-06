@@ -195,8 +195,8 @@ func configureUFW(sshPort string) {
 	run("ufw", "allow", "3/tcp", "comment", "PANEL")
 	run("ufw", "allow", "10443/tcp", "comment", "SUBSCRIPTION")
 	run("ufw", "allow", "8443/tcp")
-	run("ufw", "deny", "9000")
-	run("ufw", "deny", "40000")
+	run("ufw", "deny", "9000", "comment", "nginx")
+	run("ufw", "deny", "40000", "comment", "warp")
 	run("ufw", "--force", "enable")
 }
 

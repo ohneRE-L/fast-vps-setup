@@ -1,7 +1,10 @@
 # Fast VPS Setup (3x-ui + Security) 🚀
 
 Автоматизированный скрипт на **Go** для быстрой и безопасной настройки нового VPS сервера за одну команду.
+
 **Multi-language support:** Скрипт поддерживает **русский** и **английский** языки (выбор при запуске).
+
+## 🛠 Что делает скрипт?
 
 1.  **Обновление системы:** Выполняет `apt update && apt upgrade -y`.
 2.  **Оптимизация (ulimit):** Увеличивает лимит открытых файлов до `65535` для стабильной работы прокси под нагрузкой.
@@ -85,4 +88,4 @@ Upon completion, the script will output a frame in the console with your login d
 
 > **WARNING:** If you try to access `http://IP:3` directly, the server will return a 404 error. This is intentional to hide the panel from scanners. Only use the full secret link!
 
----
+---

@@ -1,5 +1,4 @@
 //go:build linux
-// +build linux
 
 package main
 
@@ -16,6 +15,98 @@ import (
 	"syscall"
 	"time"
 )
+
+type Messages struct {
+	LangSelect      string
+	RootRequired    string
+	SSHPortPrompt   string
+	SSHPortEmpty    string
+	ChangeSSH       string
+	SetupUFW        string
+	Install3xUI     string
+	InstallTelemt   string
+	InstallWarp     string
+	EnableBBR       string
+	InstallF2B      string
+	SystemUpdate    string
+	Ulimits         string
+	SSHChange       string
+	UFWSetup        string
+	Installing3x    string
+	InstallingTelemt string
+	InstallingWarp  string
+	InstallingBBR   string
+	InstallingF2B   string
+	Finalizing      string
+	Success         string
+	URL             string
+	Login           string
+	Password        string
+	SSHPort         string
+	XUICommand      string
+}
+
+var ruMsgs = Messages{
+	LangSelect:      "👉 Выберите язык / Select language (1: RU, 2: EN): ",
+	RootRequired:    "Ошибка: запустите скрипт от имени root (sudo)",
+	SSHPortPrompt:   "👉 Введите новый порт для SSH (например, 9049): ",
+	SSHPortEmpty:    "Порт не может быть пустым",
+	ChangeSSH:       "Изменить порт SSH?",
+	SetupUFW:        "Настроить Firewall (UFW)?",
+	Install3xUI:     "Установить 3x-ui?",
+	InstallTelemt:   "Установить telemt?",
+	InstallWarp:     "Установить WARP watchdog?",
+	EnableBBR:       "Включить BBR (ускорение сети)?",
+	InstallF2B:      "Установить Fail2Ban (защита от брутфорса)?",
+	SystemUpdate:    "[1/6] 🛠 Обновление системы...",
+	Ulimits:         "[2/6] 🚀 Настройка лимитов...",
+	SSHChange:       "[3/6] 🔒 Смена порта SSH на ",
+	UFWSetup:        "[4/6] 🧱 Настройка Firewall...",
+	Installing3x:    "[5/6] 📥 Установка 3x-ui...",
+	InstallingTelemt: "[5.5/6] 📥 Установка telemt...",
+	InstallingWarp:  "[6.5/6] 🛡 Настройка WARP Watchdog...",
+	InstallingBBR:   "[2.5/6] ⚡️ Включение BBR...",
+	InstallingF2B:   "[4.5/6] 🛡 Установка Fail2Ban...",
+	Finalizing:      "[6/6] ⚙️ Финализация настроек...",
+	Success:         "✅ УСТАНОВКА ЗАВЕРШЕНА!",
+	URL:             "🌐 Ссылка",
+	Login:           "👤 Логин",
+	Password:        "🔑 Пароль",
+	SSHPort:         "📡 SSH порт",
+	XUICommand:      "Команда 'x-ui' доступна в консоли.",
+}
+
+var enMsgs = Messages{
+	LangSelect:      "👉 Выберите язык / Select language (1: RU, 2: EN): ",
+	RootRequired:    "Error: run the script as root (sudo)",
+	SSHPortPrompt:   "👉 Enter new SSH port (e.g., 9049): ",
+	SSHPortEmpty:    "Port cannot be empty",
+	ChangeSSH:       "Change SSH port?",
+	SetupUFW:        "Configure Firewall (UFW)?",
+	Install3xUI:     "Install 3x-ui?",
+	InstallTelemt:   "Install telemt?",
+	InstallWarp:     "Install WARP watchdog?",
+	EnableBBR:       "Enable BBR (network optimization)?",
+	InstallF2B:      "Install Fail2Ban (brute-force protection)?",
+	SystemUpdate:    "[1/6] 🛠 System update...",
+	Ulimits:         "[2/6] 🚀 Setting limits...",
+	SSHChange:       "[3/6] 🔒 Changing SSH port to ",
+	UFWSetup:        "[4/6] 🧱 Configuring Firewall...",
+	Installing3x:    "[5/6] 📥 Installing 3x-ui...",
+	InstallingTelemt: "[5.5/6] 📥 Installing telemt...",
+	InstallingWarp:  "[6.5/6] 🛡 Setting up WARP Watchdog...",
+	InstallingBBR:   "[2.5/6] ⚡️ Enabling BBR...",
+	InstallingF2B:   "[4.5/6] 🛡 Installing Fail2Ban...",
+	Finalizing:      "[6/6] ⚙️ Finalizing settings...",
+	Success:         "✅ INSTALLATION COMPLETED!",
+	URL:             "🌐 URL",
+	Login:           "👤 Login",
+	Password:        "🔑 Password",
+	SSHPort:         "📡 SSH Port",
+	XUICommand:      "The 'x-ui' command is available in the console.",
+}
+
+var T Messages
 
 func run(name string, args ...string) {
 	cmd := exec.Command(name, args...)
@@ -38,102 +129,9 @@ func getIP() string {
 	out, _ := exec.Command("curl", "-s", "https://api.ipify.org").Output()
 	res := strings.TrimSpace(string(out))
 	if res == "" {
-		return "<IP_СЕРВЕРА>"
+		return "<IP_SERVER>"
 	}
 	return res
-}
-
-func main() {
-	if os.Getuid() != 0 {
-		log.Fatalf("Ошибка: запустите скрипт от имени root (sudo)")
-	}
-
-	reader := bufio.NewReader(os.Stdin)
-	changeSSHPortChoice := askYesNo("Изменить порт SSH?", reader)
-	sshPort := "22"
-	if changeSSHPortChoice {
-		fmt.Print("👉 Введите новый порт для SSH (например, 9049): ")
-		input, _ := reader.ReadString('\n')
-		sshPort = strings.TrimSpace(input)
-		if sshPort == "" {
-			log.Fatal("Порт не может быть пустым")
-		}
-	}
-
-	configureUFWChoice := askYesNo("Настроить Firewall (UFW)?", reader)
-	install3xUI := askYesNo("Установить 3x-ui?", reader)
-	installTelemtChoice := askYesNo("Установить telemt?", reader)
-	installWarpWatchdogChoice := askYesNo("Установить WARP watchdog?", reader)
-	enableBBRChoice := askYesNo("Включить BBR (ускорение сети)?", reader)
-	installFail2BanChoice := askYesNo("Установить Fail2Ban (защита от брутфорса)?", reader)
-
-	secretPath := generateRandomString(12)
-	adminUser := generateRandomString(8)
-	adminPass := generateRandomString(14)
-
-	fmt.Println("\n[1/6] 🛠 Обновление системы...")
-	os.Setenv("DEBIAN_FRONTEND", "noninteractive")
-	run("apt-get", "update")
-	run("apt-get", "-y", "-o", "Dpkg::Options::=--force-confdef", "-o", "Dpkg::Options::=--force-confold", "upgrade")
-
-	fmt.Println("\n[2/6] 🚀 Настройка лимитов...")
-	setUlimits()
-
-	if enableBBRChoice {
-		fmt.Println("\n[2.5/6] ⚡️ Включение BBR...")
-		enableBBR()
-	}
-
-	if changeSSHPortChoice {
-		fmt.Println("\n[3/6] 🔒 Смена порта SSH на", sshPort)
-		applySSHPort(sshPort)
-	}
-
-	if configureUFWChoice {
-		fmt.Println("\n[4/6] 🧱 Настройка Firewall...")
-		configureUFW(sshPort)
-	}
-
-	if installFail2BanChoice {
-		fmt.Println("\n[4.5/6] 🛡 Установка Fail2Ban...")
-		installFail2Ban()
-	}
-
-	if install3xUI {
-		fmt.Println("\n[5/6] 📥 Установка 3x-ui...")
-		install3xUIOfficial()
-	}
-
-	if installTelemtChoice {
-		fmt.Println("\n[5.5/6] 📥 Установка telemt...")
-		installTelemt()
-	}
-
-	if install3xUI {
-		fmt.Println("\n[6/6] ⚙️ Финализация настроек...")
-		finalConfig(adminUser, adminPass, secretPath)
-	}
-
-	if installWarpWatchdogChoice {
-		fmt.Println("\n[6.5/6] 🛡 Настройка WARP Watchdog...")
-		setupWarpWatchdog()
-	}
-
-	ip := getIP()
-	fmt.Println("\n" + strings.Repeat("=", 50))
-	fmt.Println("✅ УСТАНОВКА ЗАВЕРШЕНА!")
-	fmt.Println(strings.Repeat("=", 50))
-	if install3xUI {
-		fmt.Printf("🌐 Ссылка: http://%s:3/%s/\n", ip, secretPath)
-		fmt.Printf("👤 Логин:  %s\n", adminUser)
-		fmt.Printf("🔑 Пароль: %s\n", adminPass)
-		fmt.Println(strings.Repeat("-", 50))
-	}
-	fmt.Printf("📡 SSH порт: %s\n", sshPort)
-	fmt.Println(strings.Repeat("=", 50))
-	if install3xUI {
-		fmt.Println("Команда 'x-ui' доступна в консоли.")
-	}
 }
 
 func askYesNo(prompt string, reader *bufio.Reader) bool {
@@ -147,7 +145,114 @@ func askYesNo(prompt string, reader *bufio.Reader) bool {
 		if input == "n" || input == "no" {
 			return false
 		}
-		fmt.Println("Пожалуйста, введите 'y' или 'n'")
+	}
+}
+
+func main() {
+	if os.Getuid() != 0 {
+		log.Fatalf("Error: root required")
+	}
+
+	reader := bufio.NewReader(os.Stdin)
+
+	// Language selection
+	for {
+		fmt.Print(ruMsgs.LangSelect)
+		lang, _ := reader.ReadString('\n')
+		lang = strings.TrimSpace(lang)
+		if lang == "1" {
+			T = ruMsgs
+			break
+		} else if lang == "2" {
+			T = enMsgs
+			break
+		}
+	}
+
+	changeSSHPortChoice := askYesNo(T.ChangeSSH, reader)
+	sshPort := getCurrentSSHPort()
+	if changeSSHPortChoice {
+		fmt.Print(T.SSHPortPrompt)
+		input, _ := reader.ReadString('\n')
+		input = strings.TrimSpace(input)
+		if input != "" {
+			sshPort = input
+		}
+	}
+
+	configureUFWChoice := askYesNo(T.SetupUFW, reader)
+	install3xUI := askYesNo(T.Install3xUI, reader)
+	installTelemtChoice := askYesNo(T.InstallTelemt, reader)
+	installWarpWatchdogChoice := askYesNo(T.InstallWarp, reader)
+	enableBBRChoice := askYesNo(T.EnableBBR, reader)
+	installFail2BanChoice := askYesNo(T.InstallF2B, reader)
+
+	secretPath := generateRandomString(12)
+	adminUser := generateRandomString(8)
+	adminPass := generateRandomString(14)
+
+	fmt.Println("\n" + T.SystemUpdate)
+	os.Setenv("DEBIAN_FRONTEND", "noninteractive")
+	run("apt-get", "update")
+	run("apt-get", "-y", "-o", "Dpkg::Options::=--force-confdef", "-o", "Dpkg::Options::=--force-confold", "upgrade")
+
+	fmt.Println("\n" + T.Ulimits)
+	setUlimits()
+
+	if enableBBRChoice {
+		fmt.Println("\n" + T.InstallingBBR)
+		enableBBR()
+	}
+
+	if changeSSHPortChoice {
+		fmt.Println("\n" + T.SSHChange + sshPort)
+		applySSHPort(sshPort)
+	}
+
+	if configureUFWChoice {
+		fmt.Println("\n" + T.UFWSetup)
+		configureUFW(sshPort)
+	}
+
+	if installFail2BanChoice {
+		fmt.Println("\n" + T.InstallingF2B)
+		installFail2Ban()
+	}
+
+	if install3xUI {
+		fmt.Println("\n" + T.Installing3x)
+		install3xUIOfficial()
+	}
+
+	if installTelemtChoice {
+		fmt.Println("\n" + T.InstallingTelemt)
+		installTelemt()
+	}
+
+	if install3xUI {
+		fmt.Println("\n" + T.Finalizing)
+		finalConfig(adminUser, adminPass, secretPath)
+	}
+
+	if installWarpWatchdogChoice {
+		fmt.Println("\n" + T.InstallingWarp)
+		setupWarpWatchdog()
+	}
+
+	ip := getIP()
+	fmt.Println("\n" + strings.Repeat("=", 50))
+	fmt.Println(T.Success)
+	fmt.Println(strings.Repeat("=", 50))
+	if install3xUI {
+		fmt.Printf("%s: http://%s:3/%s/\n", T.URL, ip, secretPath)
+		fmt.Printf("%s:  %s\n", T.Login, adminUser)
+		fmt.Printf("%s: %s\n", T.Password, adminPass)
+		fmt.Println(strings.Repeat("-", 50))
+	}
+	fmt.Printf("%s: %s\n", T.SSHPort, sshPort)
+	fmt.Println(strings.Repeat("=", 50))
+	if install3xUI {
+		fmt.Println(T.XUICommand)
 	}
 }
 
@@ -275,4 +380,17 @@ func installFail2Ban() {
 	run("apt-get", "install", "-y", "fail2ban")
 	run("systemctl", "enable", "fail2ban")
 	run("systemctl", "start", "fail2ban")
+}
+
+func getCurrentSSHPort() string {
+	data, err := os.ReadFile("/etc/ssh/sshd_config")
+	if err != nil {
+		return "22"
+	}
+	re := regexp.MustCompile(`(?m)^Port\s+(\d+)`)
+	match := re.FindStringSubmatch(string(data))
+	if len(match) > 1 {
+		return match[1]
+	}
+	return "22"
 }

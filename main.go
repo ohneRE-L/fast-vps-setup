@@ -59,6 +59,8 @@ func main() {
 	install3xUI := askYesNo("Установить 3x-ui?", reader)
 	installTelemtChoice := askYesNo("Установить telemt?", reader)
 	installWarpWatchdogChoice := askYesNo("Установить WARP watchdog?", reader)
+	enableBBRChoice := askYesNo("Включить BBR (ускорение сети)?", reader)
+	installFail2BanChoice := askYesNo("Установить Fail2Ban (защита от брутфорса)?", reader)
 
 	secretPath := generateRandomString(12)
 	adminUser := generateRandomString(8)
@@ -72,11 +74,21 @@ func main() {
 	fmt.Println("\n[2/6] 🚀 Настройка лимитов...")
 	setUlimits()
 
+	if enableBBRChoice {
+		fmt.Println("\n[2.5/6] ⚡️ Включение BBR...")
+		enableBBR()
+	}
+
 	fmt.Println("\n[3/6] 🔒 Смена порта SSH на", sshPort)
 	applySSHPort(sshPort)
 
 	fmt.Println("\n[4/6] 🧱 Настройка Firewall...")
 	configureUFW(sshPort)
+
+	if installFail2BanChoice {
+		fmt.Println("\n[4.5/6] 🛡 Установка Fail2Ban...")
+		installFail2Ban()
+	}
 
 	if install3xUI {
 		fmt.Println("\n[5/6] 📥 Установка 3x-ui...")
@@ -239,4 +251,19 @@ func finalConfig(user, pass, path string) {
 
 	run("systemctl", "restart", "x-ui")
 	run("hash", "-r")
+}
+
+func enableBBR() {
+	f, _ := os.OpenFile("/etc/sysctl.conf", os.O_APPEND|os.O_WRONLY, 0644)
+	if f != nil {
+		defer f.Close()
+		_, _ = f.WriteString("\nnet.core.default_qdisc=fq\nnet.ipv4.tcp_congestion_control=bbr\n")
+	}
+	run("sysctl", "-p")
+}
+
+func installFail2Ban() {
+	run("apt-get", "install", "-y", "fail2ban")
+	run("systemctl", "enable", "fail2ban")
+	run("systemctl", "start", "fail2ban")
 }

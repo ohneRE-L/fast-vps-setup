@@ -17,93 +17,93 @@ import (
 )
 
 type Messages struct {
-	LangSelect      string
-	RootRequired    string
-	SSHPortPrompt   string
-	SSHPortEmpty    string
-	ChangeSSH       string
-	SetupUFW        string
-	Install3xUI     string
-	InstallTelemt   string
-	InstallWarp     string
-	EnableBBR       string
-	InstallF2B      string
-	SystemUpdate    string
-	Ulimits         string
-	SSHChange       string
-	UFWSetup        string
-	Installing3x    string
+	LangSelect       string
+	RootRequired     string
+	SSHPortPrompt    string
+	SSHPortEmpty     string
+	ChangeSSH        string
+	SetupUFW         string
+	Install3xUI      string
+	InstallTelemt    string
+	InstallWarp      string
+	EnableBBR        string
+	InstallF2B       string
+	SystemUpdate     string
+	Ulimits          string
+	SSHChange        string
+	UFWSetup         string
+	Installing3x     string
 	InstallingTelemt string
-	InstallingWarp  string
-	InstallingBBR   string
-	InstallingF2B   string
-	Finalizing      string
-	Success         string
-	URL             string
-	Login           string
-	Password        string
-	SSHPort         string
-	XUICommand      string
+	InstallingWarp   string
+	InstallingBBR    string
+	InstallingF2B    string
+	Finalizing       string
+	Success          string
+	URL              string
+	Login            string
+	Password         string
+	SSHPort          string
+	XUICommand       string
 }
 
 var ruMsgs = Messages{
-	LangSelect:      "👉 Выберите язык / Select language (1: RU, 2: EN): ",
-	RootRequired:    "Ошибка: запустите скрипт от имени root (sudo)",
-	SSHPortPrompt:   "👉 Введите новый порт для SSH (например, 9049): ",
-	SSHPortEmpty:    "Порт не может быть пустым",
-	ChangeSSH:       "Изменить порт SSH?",
-	SetupUFW:        "Настроить Firewall (UFW)?",
-	Install3xUI:     "Установить 3x-ui?",
-	InstallTelemt:   "Установить telemt?",
-	InstallWarp:     "Установить WARP watchdog?",
-	EnableBBR:       "Включить BBR (ускорение сети)?",
-	InstallF2B:      "Установить Fail2Ban (защита от брутфорса)?",
-	SystemUpdate:    "[1/6] 🛠 Обновление системы...",
-	Ulimits:         "[2/6] 🚀 Настройка лимитов...",
-	SSHChange:       "[3/6] 🔒 Смена порта SSH на ",
-	UFWSetup:        "[4/6] 🧱 Настройка Firewall...",
-	Installing3x:    "[5/6] 📥 Установка 3x-ui...",
+	LangSelect:       "👉 Выберите язык / Select language (1: RU, 2: EN): ",
+	RootRequired:     "Ошибка: запустите скрипт от имени root (sudo)",
+	SSHPortPrompt:    "👉 Введите новый порт для SSH (например, 9049): ",
+	SSHPortEmpty:     "Порт не может быть пустым",
+	ChangeSSH:        "Изменить порт SSH?",
+	SetupUFW:         "Настроить Firewall (UFW)?",
+	Install3xUI:      "Установить 3x-ui?",
+	InstallTelemt:    "Установить telemt?",
+	InstallWarp:      "Установить WARP watchdog?",
+	EnableBBR:        "Включить BBR (ускорение сети)?",
+	InstallF2B:       "Установить Fail2Ban (защита от брутфорса)?",
+	SystemUpdate:     "[1/6] 🛠 Обновление системы...",
+	Ulimits:          "[2/6] 🚀 Настройка лимитов...",
+	SSHChange:        "[3/6] 🔒 Смена порта SSH на ",
+	UFWSetup:         "[4/6] 🧱 Настройка Firewall...",
+	Installing3x:     "[5/6] 📥 Установка 3x-ui...",
 	InstallingTelemt: "[5.5/6] 📥 Установка telemt...",
-	InstallingWarp:  "[6.5/6] 🛡 Настройка WARP Watchdog...",
-	InstallingBBR:   "[2.5/6] ⚡️ Включение BBR...",
-	InstallingF2B:   "[4.5/6] 🛡 Установка Fail2Ban...",
-	Finalizing:      "[6/6] ⚙️ Финализация настроек...",
-	Success:         "✅ УСТАНОВКА ЗАВЕРШЕНА!",
-	URL:             "🌐 Ссылка",
-	Login:           "👤 Логин",
-	Password:        "🔑 Пароль",
-	SSHPort:         "📡 SSH порт",
-	XUICommand:      "Команда 'x-ui' доступна в консоли.",
+	InstallingWarp:   "[6.5/6] 🛡 Настройка WARP Watchdog...",
+	InstallingBBR:    "[2.5/6] ⚡️ Включение BBR...",
+	InstallingF2B:    "[4.5/6] 🛡 Установка Fail2Ban...",
+	Finalizing:       "[6/6] ⚙️ Финализация настроек...",
+	Success:          "✅ УСТАНОВКА ЗАВЕРШЕНА!",
+	URL:              "🌐 Ссылка",
+	Login:            "👤 Логин",
+	Password:         "🔑 Пароль",
+	SSHPort:          "📡 SSH порт",
+	XUICommand:       "Команда 'x-ui' доступна в консоли.",
 }
 
 var enMsgs = Messages{
-	LangSelect:      "👉 Выберите язык / Select language (1: RU, 2: EN): ",
-	RootRequired:    "Error: run the script as root (sudo)",
-	SSHPortPrompt:   "👉 Enter new SSH port (e.g., 9049): ",
-	SSHPortEmpty:    "Port cannot be empty",
-	ChangeSSH:       "Change SSH port?",
-	SetupUFW:        "Configure Firewall (UFW)?",
-	Install3xUI:     "Install 3x-ui?",
-	InstallTelemt:   "Install telemt?",
-	InstallWarp:     "Install WARP watchdog?",
-	EnableBBR:       "Enable BBR (network optimization)?",
-	InstallF2B:      "Install Fail2Ban (brute-force protection)?",
-	SystemUpdate:    "[1/6] 🛠 System update...",
-	Ulimits:         "[2/6] 🚀 Setting limits...",
-	SSHChange:       "[3/6] 🔒 Changing SSH port to ",
-	UFWSetup:        "[4/6] 🧱 Configuring Firewall...",
-	Installing3x:    "[5/6] 📥 Installing 3x-ui...",
+	LangSelect:       "👉 Выберите язык / Select language (1: RU, 2: EN): ",
+	RootRequired:     "Error: run the script as root (sudo)",
+	SSHPortPrompt:    "👉 Enter new SSH port (e.g., 9049): ",
+	SSHPortEmpty:     "Port cannot be empty",
+	ChangeSSH:        "Change SSH port?",
+	SetupUFW:         "Configure Firewall (UFW)?",
+	Install3xUI:      "Install 3x-ui?",
+	InstallTelemt:    "Install telemt?",
+	InstallWarp:      "Install WARP watchdog?",
+	EnableBBR:        "Enable BBR (network optimization)?",
+	InstallF2B:       "Install Fail2Ban (brute-force protection)?",
+	SystemUpdate:     "[1/6] 🛠 System update...",
+	Ulimits:          "[2/6] 🚀 Setting limits...",
+	SSHChange:        "[3/6] 🔒 Changing SSH port to ",
+	UFWSetup:         "[4/6] 🧱 Configuring Firewall...",
+	Installing3x:     "[5/6] 📥 Installing 3x-ui...",
 	InstallingTelemt: "[5.5/6] 📥 Installing telemt...",
-	InstallingWarp:  "[6.5/6] 🛡 Setting up WARP Watchdog...",
-	InstallingBBR:   "[2.5/6] ⚡️ Enabling BBR...",
-	InstallingF2B:   "[4.5/6] 🛡 Installing Fail2Ban...",
-	Finalizing:      "[6/6] ⚙️ Finalizing settings...",
-	Success:         "✅ INSTALLATION COMPLETED!",
-	URL:             "🌐 URL",
-	Login:           "👤 Login",
-	Password:        "🔑 Password",
-	SSHPort:         "📡 SSH Port",
-	XUICommand:      "The 'x-ui' command is available in the console.",
+	InstallingWarp:   "[6.5/6] 🛡 Setting up WARP Watchdog...",
+	InstallingBBR:    "[2.5/6] ⚡️ Enabling BBR...",
+	InstallingF2B:    "[4.5/6] 🛡 Installing Fail2Ban...",
+	Finalizing:       "[6/6] ⚙️ Finalizing settings...",
+	Success:          "✅ INSTALLATION COMPLETED!",
+	URL:              "🌐 URL",
+	Login:            "👤 Login",
+	Password:         "🔑 Password",
+	SSHPort:          "📡 SSH Port",
+	XUICommand:       "The 'x-ui' command is available in the console.",
 }
 
 var T Messages
@@ -192,7 +192,10 @@ func main() {
 	adminPass := generateRandomString(14)
 
 	fmt.Println("\n" + T.SystemUpdate)
-	os.Setenv("DEBIAN_FRONTEND", "noninteractive")
+	err := os.Setenv("DEBIAN_FRONTEND", "noninteractive")
+	if err != nil {
+		return
+	}
 	run("apt-get", "update")
 	run("apt-get", "-y", "-o", "Dpkg::Options::=--force-confdef", "-o", "Dpkg::Options::=--force-confold", "upgrade")
 
@@ -266,7 +269,12 @@ func setUlimits() {
 	content := "\n* soft nofile 65535\n* hard nofile 65535\nroot soft nofile 65535\nroot hard nofile 65535\n"
 	f, _ := os.OpenFile("/etc/security/limits.conf", os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
 	if f != nil {
-		defer f.Close()
+		defer func(f *os.File) {
+			err := f.Close()
+			if err != nil {
+
+			}
+		}(f)
 		_, _ = f.WriteString(content)
 	}
 }
@@ -370,7 +378,12 @@ func finalConfig(user, pass, path string) {
 func enableBBR() {
 	f, _ := os.OpenFile("/etc/sysctl.conf", os.O_APPEND|os.O_WRONLY, 0644)
 	if f != nil {
-		defer f.Close()
+		defer func(f *os.File) {
+			err := f.Close()
+			if err != nil {
+
+			}
+		}(f)
 		_, _ = f.WriteString("\nnet.core.default_qdisc=fq\nnet.ipv4.tcp_congestion_control=bbr\n")
 	}
 	run("sysctl", "-p")

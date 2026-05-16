@@ -44,6 +44,8 @@ type Messages struct {
 	Password         string
 	SSHPort          string
 	XUICommand       string
+	SetupDNS         string
+	InstallingDNS    string
 }
 
 var ruMsgs = Messages{
@@ -74,6 +76,8 @@ var ruMsgs = Messages{
 	Password:         "🔑 Пароль",
 	SSHPort:          "📡 SSH порт",
 	XUICommand:       "Команда 'x-ui' доступна в консоли.",
+	SetupDNS:         "Настроить DNS (Cloudflare 1.1.1.1)?",
+	InstallingDNS:    "[3.5/6] 🌐 Настройка DNS (Cloudflare)...",
 }
 
 var enMsgs = Messages{
@@ -104,6 +108,8 @@ var enMsgs = Messages{
 	Password:         "🔑 Password",
 	SSHPort:          "📡 SSH Port",
 	XUICommand:       "The 'x-ui' command is available in the console.",
+	SetupDNS:         "Configure DNS (Cloudflare 1.1.1.1)?",
+	InstallingDNS:    "[3.5/6] 🌐 Configuring DNS (Cloudflare)...",
 }
 
 var T Messages
@@ -186,6 +192,7 @@ func main() {
 	installWarpWatchdogChoice := askYesNo(T.InstallWarp, reader)
 	enableBBRChoice := askYesNo(T.EnableBBR, reader)
 	installFail2BanChoice := askYesNo(T.InstallF2B, reader)
+	setupDNSChoice := askYesNo(T.SetupDNS, reader)
 
 	secretPath := generateRandomString(12)
 	adminUser := generateRandomString(8)
@@ -210,6 +217,11 @@ func main() {
 	if changeSSHPortChoice {
 		fmt.Println("\n" + T.SSHChange + sshPort)
 		applySSHPort(sshPort)
+	}
+	
+	if setupDNSChoice {
+		fmt.Println("\n" + T.InstallingDNS)
+		setupDNS()
 	}
 
 	if configureUFWChoice {
@@ -393,6 +405,13 @@ func installFail2Ban() {
 	run("apt-get", "install", "-y", "fail2ban")
 	run("systemctl", "enable", "fail2ban")
 	run("systemctl", "start", "fail2ban")
+}
+
+func setupDNS() {
+	config := "[Resolve]\nDNS=1.1.1.1 1.0.0.1 2606:4700:4700::1111 2606:4700:4700::1001\nFallbackDNS=8.8.8.8 8.8.4.4\nDNSStubListener=yes\n"
+	_ = os.MkdirAll("/etc/systemd/resolved.conf.d", 0755)
+	_ = os.WriteFile("/etc/systemd/resolved.conf.d/dns.conf", []byte(config), 0644)
+	run("systemctl", "restart", "systemd-resolved")
 }
 
 func getCurrentSSHPort() string {

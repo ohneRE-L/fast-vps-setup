@@ -46,6 +46,10 @@ type Messages struct {
 	XUICommand       string
 	SetupDNS         string
 	InstallingDNS    string
+	SetupSSHKey      string
+	EnterSSHKey      string
+	InstallingSSHKey string
+	SSHKeyEmpty      string
 }
 
 var ruMsgs = Messages{
@@ -78,6 +82,10 @@ var ruMsgs = Messages{
 	XUICommand:       "Команда 'x-ui' доступна в консоли.",
 	SetupDNS:         "Настроить DNS (Cloudflare 1.1.1.1)?",
 	InstallingDNS:    "[3.5/6] 🌐 Настройка DNS (Cloudflare)...",
+	SetupSSHKey:      "Добавить SSH-ключ (и отключить пароли)?",
+	EnterSSHKey:      "👉 Если у вас нет ключа, откройте новый терминал на вашем ПК и введите 'ssh-keygen -t ed25519'.\n👉 Затем скопируйте содержимое файла (обычно ~/.ssh/id_ed25519.pub).\n👉 Введите ваш публичный SSH-ключ:\n",
+	InstallingSSHKey: "[3.7/6] 🔑 Настройка SSH-ключа...",
+	SSHKeyEmpty:      "SSH-ключ не может быть пустым",
 }
 
 var enMsgs = Messages{
@@ -110,6 +118,10 @@ var enMsgs = Messages{
 	XUICommand:       "The 'x-ui' command is available in the console.",
 	SetupDNS:         "Configure DNS (Cloudflare 1.1.1.1)?",
 	InstallingDNS:    "[3.5/6] 🌐 Configuring DNS (Cloudflare)...",
+	SetupSSHKey:      "Add SSH key (and disable passwords)?",
+	EnterSSHKey:      "👉 If you don't have a key, open a new terminal on your PC and run 'ssh-keygen -t ed25519'.\n👉 Then copy the contents of the file (usually ~/.ssh/id_ed25519.pub).\n👉 Enter your public SSH key:\n",
+	InstallingSSHKey: "[3.7/6] 🔑 Configuring SSH key...",
+	SSHKeyEmpty:      "SSH key cannot be empty",
 }
 
 var T Messages
@@ -186,6 +198,17 @@ func main() {
 		}
 	}
 
+	setupSSHKeyChoice := askYesNo(T.SetupSSHKey, reader)
+	sshKey := ""
+	if setupSSHKeyChoice {
+		fmt.Print(T.EnterSSHKey)
+		input, _ := reader.ReadString('\n')
+		sshKey = strings.TrimSpace(input)
+		if sshKey == "" {
+			log.Fatal(T.SSHKeyEmpty)
+		}
+	}
+
 	configureUFWChoice := askYesNo(T.SetupUFW, reader)
 	install3xUI := askYesNo(T.Install3xUI, reader)
 	installTelemtChoice := askYesNo(T.InstallTelemt, reader)
@@ -217,6 +240,11 @@ func main() {
 	if changeSSHPortChoice {
 		fmt.Println("\n" + T.SSHChange + sshPort)
 		applySSHPort(sshPort)
+	}
+
+	if setupSSHKeyChoice {
+		fmt.Println("\n" + T.InstallingSSHKey)
+		setupSSHKey(sshKey)
 	}
 	
 	if setupDNSChoice {
@@ -425,4 +453,26 @@ func getCurrentSSHPort() string {
 		return match[1]
 	}
 	return "22"
+}
+
+func setupSSHKey(key string) {
+	_ = os.MkdirAll("/root/.ssh", 0700)
+	f, err := os.OpenFile("/root/.ssh/authorized_keys", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
+	if err == nil {
+		_, _ = f.WriteString(key + "\n")
+		f.Close()
+	}
+
+	cfg, err := os.ReadFile("/etc/ssh/sshd_config")
+	if err == nil {
+		re := regexp.MustCompile(`(?m)^#?PasswordAuthentication\s+(yes|no)`)
+		newCfg := re.ReplaceAll(cfg, []byte("PasswordAuthentication no"))
+		if !strings.Contains(string(newCfg), "PasswordAuthentication no") {
+			newCfg = append(newCfg, []byte("\nPasswordAuthentication no\n")...)
+		}
+		_ = os.WriteFile("/etc/ssh/sshd_config", newCfg, 0644)
+	}
+	if err := exec.Command("systemctl", "restart", "sshd").Run(); err != nil {
+		run("systemctl", "restart", "ssh")
+	}
 }

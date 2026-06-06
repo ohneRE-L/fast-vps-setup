@@ -20,7 +20,8 @@
 7.  **Ускорение BBR:** Включает алгоритм Google BBR для минимизации задержек и увеличения скорости прокси.
 8.  **Fail2Ban:** Защищает SSH от брутфорс-атак, автоматически блокируя подозрительные IP.
 9.  **Максимальная защита:** Если выбран 3x-ui, скрипт сгенерирует **случайный логин**, **случайный пароль** и **случайный секретный путь** (Web Base Path).
-
+10. **DNS (Cloudflare):** Настройка быстрого и надежного DNS-сервера 1.1.1.1 (опционально).
+11. **Настройка SSH-ключа:** Опциональное добавление вашего публичного SSH-ключа для безопасного входа и полное отключение парольной авторизации.
 ---
 
 ## 🚀 Установка
@@ -66,7 +67,8 @@ An automated **Go** script for fast and secure configuration of a new VPS server
 7.  **BBR Acceleration:** Enables the Google BBR algorithm to minimize latency and increase proxy speed.
 8.  **Fail2Ban:** Protects SSH from brute-force attacks by automatically blocking suspicious IPs.
 9.  **Maximum Security:** If 3x-ui is selected, the script generates a **random login**, **random password**, and a **random secret path** (Web Base Path).
-
+10. **DNS (Cloudflare):** Setup of fast and reliable DNS server 1.1.1.1 (optional).
+11. **SSH Key Setup:** Optional addition of your public SSH key for secure login and complete disablement of password authentication.
 ---
 
 ## 🚀 Installation

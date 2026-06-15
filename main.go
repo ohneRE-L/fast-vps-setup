@@ -246,7 +246,7 @@ func main() {
 		fmt.Println("\n" + T.InstallingSSHKey)
 		setupSSHKey(sshKey)
 	}
-	
+
 	if setupDNSChoice {
 		fmt.Println("\n" + T.InstallingDNS)
 		setupDNS()
@@ -337,10 +337,11 @@ func applySSHPort(port string) {
 
 	if isSocket {
 		_ = os.MkdirAll("/etc/systemd/system/ssh.socket.d", 0755)
-		data := fmt.Sprintf("[Socket]\nListenStream=\nListenStream=%s\n", port)
+		data := fmt.Sprintf("[Socket]\nListenStream=\nListenStream=0.0.0.0:%s\nListenStream=[::]:%s\n", port, port)
 		_ = os.WriteFile("/etc/systemd/system/ssh.socket.d/listen.conf", []byte(data), 0644)
 		run("systemctl", "daemon-reload")
 		run("systemctl", "restart", "ssh.socket")
+		run("systemctl", "restart", "ssh")
 	} else {
 		if err := exec.Command("systemctl", "restart", "sshd").Run(); err != nil {
 			run("systemctl", "restart", "ssh")

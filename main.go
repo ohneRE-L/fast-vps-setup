@@ -226,8 +226,7 @@ func main() {
 	if err != nil {
 		return
 	}
-	run("apt-get", "update")
-	run("apt-get", "-y", "-o", "Dpkg::Options::=--force-confdef", "-o", "Dpkg::Options::=--force-confold", "upgrade")
+	run("bash", "-c", "apt update && apt upgrade -y")
 
 	fmt.Println("\n" + T.Ulimits)
 	setUlimits()

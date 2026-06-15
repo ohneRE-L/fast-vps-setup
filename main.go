@@ -324,20 +324,27 @@ func applySSHPort(port string) {
 	if err == nil {
 		re := regexp.MustCompile(`(?m)^#?Port\s+\d+`)
 		newCfg := re.ReplaceAll(cfg, []byte("Port "+port))
+		if !strings.Contains(string(newCfg), "Port "+port) {
+			newCfg = append(newCfg, []byte("\nPort "+port+"\n")...)
+		}
 		_ = os.WriteFile("/etc/ssh/sshd_config", newCfg, 0644)
 	}
 
-	out, _ := exec.Command("systemctl", "list-unit-files", "ssh.socket").Output()
-	if strings.Contains(string(out), "ssh.socket") {
+	outActive, _ := exec.Command("systemctl", "is-active", "ssh.socket").Output()
+	outEnabled, _ := exec.Command("systemctl", "is-enabled", "ssh.socket").Output()
+	
+	isSocket := strings.Contains(string(outActive), "active") || strings.Contains(string(outEnabled), "enabled")
+
+	if isSocket {
 		_ = os.MkdirAll("/etc/systemd/system/ssh.socket.d", 0755)
 		data := fmt.Sprintf("[Socket]\nListenStream=\nListenStream=%s\n", port)
 		_ = os.WriteFile("/etc/systemd/system/ssh.socket.d/listen.conf", []byte(data), 0644)
 		run("systemctl", "daemon-reload")
 		run("systemctl", "restart", "ssh.socket")
-	}
-
-	if err := exec.Command("systemctl", "restart", "sshd").Run(); err != nil {
-		run("systemctl", "restart", "ssh")
+	} else {
+		if err := exec.Command("systemctl", "restart", "sshd").Run(); err != nil {
+			run("systemctl", "restart", "ssh")
+		}
 	}
 }
 

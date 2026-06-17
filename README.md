@@ -1,4 +1,4 @@
-# Fast VPS Setup (3x-ui + Security) 🚀
+# Fast VPS Setup
 
 Автоматизированный скрипт на **Go** для быстрой и безопасной настройки нового VPS сервера за одну команду.
 
@@ -45,7 +45,7 @@ bash -c "$(curl -sL https://raw.githubusercontent.com/ohneRE-L/fast-vps-setup/ma
 
 ---
 
-# Fast VPS Setup (3x-ui + Security) 🚀 [EN]
+# Fast VPS Setup [EN]
 
 An automated **Go** script for fast and secure configuration of a new VPS server in one command.
 

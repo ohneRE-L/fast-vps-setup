@@ -61,6 +61,8 @@ type Messages struct {
 	MenuOption7      string
 	MenuOption8      string
 	MenuOption9      string
+	MenuOption0      string
+	ExitMsg          string
 }
 
 var ruMsgs = Messages{
@@ -108,6 +110,8 @@ var ruMsgs = Messages{
 	MenuOption7:      "7. Включение BBR (ускорение)",
 	MenuOption8:      "8. Установка Fail2Ban",
 	MenuOption9:      "9. Настройка DNS (Cloudflare)",
+	MenuOption0:      "0. Выход",
+	ExitMsg:          "Выход из скрипта...",
 }
 
 var enMsgs = Messages{
@@ -155,6 +159,8 @@ var enMsgs = Messages{
 	MenuOption7:      "7. Enable BBR (acceleration)",
 	MenuOption8:      "8. Install Fail2Ban",
 	MenuOption9:      "9. Configure DNS (Cloudflare)",
+	MenuOption0:      "0. Exit",
+	ExitMsg:          "Exiting script...",
 }
 
 var T Messages
@@ -230,14 +236,53 @@ func main() {
 	fmt.Println(T.MenuOption7)
 	fmt.Println(T.MenuOption8)
 	fmt.Println(T.MenuOption9)
+	fmt.Println(T.MenuOption0)
 	fmt.Print("\n" + T.SelectComponents)
 
 	selection, _ := reader.ReadString('\n')
 	selection = strings.ToLower(strings.TrimSpace(selection))
 
+	if selection == "0" || selection == "" {
+		fmt.Println(T.ExitMsg)
+		os.Exit(0)
+	}
+
 	isAll := selection == "all"
+	
+	// Если не "all", проверяем на наличие невалидных символов (цифр не из списка)
+	if !isAll {
+		tokens := strings.FieldsFunc(selection, func(r rune) bool {
+			return r == ',' || r == ' '
+		})
+		for _, t := range tokens {
+			valid := false
+			for i := 1; i <= 9; i++ {
+				if t == fmt.Sprintf("%d", i) {
+					valid = true
+					break
+				}
+			}
+			if !valid {
+				fmt.Println(T.ExitMsg)
+				os.Exit(0)
+			}
+		}
+	}
+
 	has := func(s string) bool {
-		return isAll || strings.Contains(selection, s)
+		if isAll {
+			return true
+		}
+		// Используем более точный поиск (разбиваем на токены)
+		tokens := strings.FieldsFunc(selection, func(r rune) bool {
+			return r == ',' || r == ' '
+		})
+		for _, t := range tokens {
+			if t == s {
+				return true
+			}
+		}
+		return false
 	}
 
 	changeSSHPortChoice := has("1")

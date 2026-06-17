@@ -50,6 +50,17 @@ type Messages struct {
 	EnterSSHKey      string
 	InstallingSSHKey string
 	SSHKeyEmpty      string
+	SelectComponents string
+	MenuHeader       string
+	MenuOption1      string
+	MenuOption2      string
+	MenuOption3      string
+	MenuOption4      string
+	MenuOption5      string
+	MenuOption6      string
+	MenuOption7      string
+	MenuOption8      string
+	MenuOption9      string
 }
 
 var ruMsgs = Messages{
@@ -86,6 +97,17 @@ var ruMsgs = Messages{
 	EnterSSHKey:      "👉 Если у вас нет ключа, откройте новый терминал на вашем ПК и введите 'ssh-keygen -t ed25519'.\n👉 Затем скопируйте содержимое файла (обычно ~/.ssh/id_ed25519.pub).\n👉 Введите ваш публичный SSH-ключ:\n",
 	InstallingSSHKey: "[3.7/6] 🔑 Настройка SSH-ключа...",
 	SSHKeyEmpty:      "SSH-ключ не может быть пустым",
+	SelectComponents: "Введите номера через запятую (например, 1,4,7) или 'all' для всего: ",
+	MenuHeader:       "--- СПИСОК КОМПОНЕНТОВ ---",
+	MenuOption1:      "1. Смена порта SSH",
+	MenuOption2:      "2. Установка SSH-ключа (рекомендуется)",
+	MenuOption3:      "3. Настройка Firewall (UFW)",
+	MenuOption4:      "4. Установка 3x-ui",
+	MenuOption5:      "5. Установка telemt",
+	MenuOption6:      "6. Настройка WARP Watchdog",
+	MenuOption7:      "7. Включение BBR (ускорение)",
+	MenuOption8:      "8. Установка Fail2Ban",
+	MenuOption9:      "9. Настройка DNS (Cloudflare)",
 }
 
 var enMsgs = Messages{
@@ -122,6 +144,17 @@ var enMsgs = Messages{
 	EnterSSHKey:      "👉 If you don't have a key, open a new terminal on your PC and run 'ssh-keygen -t ed25519'.\n👉 Then copy the contents of the file (usually ~/.ssh/id_ed25519.pub).\n👉 Enter your public SSH key:\n",
 	InstallingSSHKey: "[3.7/6] 🔑 Configuring SSH key...",
 	SSHKeyEmpty:      "SSH key cannot be empty",
+	SelectComponents: "Enter numbers separated by comma (e.g., 1,4,7) or 'all': ",
+	MenuHeader:       "--- COMPONENT LIST ---",
+	MenuOption1:      "1. Change SSH Port",
+	MenuOption2:      "2. Setup SSH Key (Recommended)",
+	MenuOption3:      "3. Configure Firewall (UFW)",
+	MenuOption4:      "4. Install 3x-ui",
+	MenuOption5:      "5. Install telemt",
+	MenuOption6:      "6. Setup WARP Watchdog",
+	MenuOption7:      "7. Enable BBR (acceleration)",
+	MenuOption8:      "8. Install Fail2Ban",
+	MenuOption9:      "9. Configure DNS (Cloudflare)",
 }
 
 var T Messages
@@ -187,7 +220,36 @@ func main() {
 		}
 	}
 
-	changeSSHPortChoice := askYesNo(T.ChangeSSH, reader)
+	fmt.Println("\n" + T.MenuHeader)
+	fmt.Println(T.MenuOption1)
+	fmt.Println(T.MenuOption2)
+	fmt.Println(T.MenuOption3)
+	fmt.Println(T.MenuOption4)
+	fmt.Println(T.MenuOption5)
+	fmt.Println(T.MenuOption6)
+	fmt.Println(T.MenuOption7)
+	fmt.Println(T.MenuOption8)
+	fmt.Println(T.MenuOption9)
+	fmt.Print("\n" + T.SelectComponents)
+
+	selection, _ := reader.ReadString('\n')
+	selection = strings.ToLower(strings.TrimSpace(selection))
+
+	isAll := selection == "all"
+	has := func(s string) bool {
+		return isAll || strings.Contains(selection, s)
+	}
+
+	changeSSHPortChoice := has("1")
+	setupSSHKeyChoice := has("2")
+	configureUFWChoice := has("3")
+	install3xUI := has("4")
+	installTelemtChoice := has("5")
+	installWarpWatchdogChoice := has("6")
+	enableBBRChoice := has("7")
+	installFail2BanChoice := has("8")
+	setupDNSChoice := has("9")
+
 	sshPort := getCurrentSSHPort()
 	if changeSSHPortChoice {
 		fmt.Print(T.SSHPortPrompt)
@@ -198,7 +260,6 @@ func main() {
 		}
 	}
 
-	setupSSHKeyChoice := askYesNo(T.SetupSSHKey, reader)
 	sshKey := ""
 	if setupSSHKeyChoice {
 		fmt.Print(T.EnterSSHKey)
@@ -208,14 +269,6 @@ func main() {
 			log.Fatal(T.SSHKeyEmpty)
 		}
 	}
-
-	configureUFWChoice := askYesNo(T.SetupUFW, reader)
-	install3xUI := askYesNo(T.Install3xUI, reader)
-	installTelemtChoice := askYesNo(T.InstallTelemt, reader)
-	installWarpWatchdogChoice := askYesNo(T.InstallWarp, reader)
-	enableBBRChoice := askYesNo(T.EnableBBR, reader)
-	installFail2BanChoice := askYesNo(T.InstallF2B, reader)
-	setupDNSChoice := askYesNo(T.SetupDNS, reader)
 
 	secretPath := generateRandomString(12)
 	adminUser := generateRandomString(8)

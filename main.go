@@ -324,7 +324,7 @@ func main() {
 	if err != nil {
 		return
 	}
-	run("bash", "-c", "apt update && apt upgrade -y")
+	run("bash", "-c", "apt update && apt dist-upgrade -y && apt autoremove -y")
 
 	fmt.Println("\n" + T.Ulimits)
 	setUlimits()

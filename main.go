@@ -61,8 +61,10 @@ type Messages struct {
 	MenuOption7      string
 	MenuOption8      string
 	MenuOption9      string
+	MenuOption10     string
 	MenuOption0      string
 	ExitMsg          string
+	DisablingSocket  string
 }
 
 var ruMsgs = Messages{
@@ -110,8 +112,10 @@ var ruMsgs = Messages{
 	MenuOption7:      "7. Включение BBR (ускорение)",
 	MenuOption8:      "8. Установка Fail2Ban",
 	MenuOption9:      "9. Настройка DNS (Cloudflare)",
+	MenuOption10:     "10. Отключить SSH Socket (включить классический SSH Service)",
 	MenuOption0:      "0. Выход",
 	ExitMsg:          "Выход из скрипта...",
+	DisablingSocket:  "[3.1/6] ⚙️ Отключение SSH Socket и запуск классического SSH Service...",
 }
 
 var enMsgs = Messages{
@@ -159,8 +163,10 @@ var enMsgs = Messages{
 	MenuOption7:      "7. Enable BBR (acceleration)",
 	MenuOption8:      "8. Install Fail2Ban",
 	MenuOption9:      "9. Configure DNS (Cloudflare)",
+	MenuOption10:     "10. Disable SSH Socket (enable classic SSH Service)",
 	MenuOption0:      "0. Exit",
 	ExitMsg:          "Exiting script...",
+	DisablingSocket:  "[3.1/6] ⚙️ Disabling SSH Socket and starting classic SSH Service...",
 }
 
 var T Messages
@@ -236,6 +242,7 @@ func main() {
 	fmt.Println(T.MenuOption7)
 	fmt.Println(T.MenuOption8)
 	fmt.Println(T.MenuOption9)
+	fmt.Println(T.MenuOption10)
 	fmt.Println(T.MenuOption0)
 	fmt.Print("\n" + T.SelectComponents)
 
@@ -256,7 +263,7 @@ func main() {
 		})
 		for _, t := range tokens {
 			valid := false
-			for i := 1; i <= 9; i++ {
+			for i := 1; i <= 10; i++ {
 				if t == fmt.Sprintf("%d", i) {
 					valid = true
 					break
@@ -294,6 +301,7 @@ func main() {
 	enableBBRChoice := has("7")
 	installFail2BanChoice := has("8")
 	setupDNSChoice := has("9")
+	disableSSHSocketChoice := has("10")
 
 	sshPort := getCurrentSSHPort()
 	if changeSSHPortChoice {
@@ -332,6 +340,11 @@ func main() {
 	if enableBBRChoice {
 		fmt.Println("\n" + T.InstallingBBR)
 		enableBBR()
+	}
+
+	if disableSSHSocketChoice {
+		fmt.Println("\n" + T.DisablingSocket)
+		disableSSHSocket()
 	}
 
 	if changeSSHPortChoice {
@@ -579,5 +592,13 @@ func setupSSHKey(key string) {
 	}
 	if err := exec.Command("systemctl", "restart", "sshd").Run(); err != nil {
 		run("systemctl", "restart", "ssh")
+	}
+}
+
+func disableSSHSocket() {
+	run("systemctl", "stop", "ssh.socket")
+	run("systemctl", "disable", "ssh.socket")
+	if err := exec.Command("systemctl", "enable", "--now", "sshd").Run(); err != nil {
+		run("systemctl", "enable", "--now", "ssh")
 	}
 }

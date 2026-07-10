@@ -62,6 +62,7 @@ type Messages struct {
 	MenuOption8      string
 	MenuOption9      string
 	MenuOption10     string
+	MenuOption11     string
 	MenuOption0      string
 	ExitMsg          string
 	DisablingSocket  string
@@ -113,6 +114,7 @@ var ruMsgs = Messages{
 	MenuOption8:      "8. Установка Fail2Ban",
 	MenuOption9:      "9. Настройка DNS (Cloudflare)",
 	MenuOption10:     "10. Отключить SSH Socket (включить классический SSH Service)",
+	MenuOption11:     "11. Обновить пакеты и ядро",
 	MenuOption0:      "0. Выход",
 	ExitMsg:          "Выход из скрипта...",
 	DisablingSocket:  "[3.1/6] ⚙️ Отключение SSH Socket и запуск классического SSH Service...",
@@ -164,6 +166,7 @@ var enMsgs = Messages{
 	MenuOption8:      "8. Install Fail2Ban",
 	MenuOption9:      "9. Configure DNS (Cloudflare)",
 	MenuOption10:     "10. Disable SSH Socket (enable classic SSH Service)",
+	MenuOption11:     "11. Update packages and kernel",
 	MenuOption0:      "0. Exit",
 	ExitMsg:          "Exiting script...",
 	DisablingSocket:  "[3.1/6] ⚙️ Disabling SSH Socket and starting classic SSH Service...",
@@ -243,6 +246,7 @@ func main() {
 	fmt.Println(T.MenuOption8)
 	fmt.Println(T.MenuOption9)
 	fmt.Println(T.MenuOption10)
+	fmt.Println(T.MenuOption11)
 	fmt.Println(T.MenuOption0)
 	fmt.Print("\n" + T.SelectComponents)
 
@@ -255,7 +259,7 @@ func main() {
 	}
 
 	isAll := selection == "all"
-	
+
 	// Если не "all", проверяем на наличие невалидных символов (цифр не из списка)
 	if !isAll {
 		tokens := strings.FieldsFunc(selection, func(r rune) bool {
@@ -263,7 +267,7 @@ func main() {
 		})
 		for _, t := range tokens {
 			valid := false
-			for i := 1; i <= 10; i++ {
+			for i := 1; i <= 11; i++ {
 				if t == fmt.Sprintf("%d", i) {
 					valid = true
 					break
@@ -302,6 +306,7 @@ func main() {
 	installFail2BanChoice := has("8")
 	setupDNSChoice := has("9")
 	disableSSHSocketChoice := has("10")
+	updateSystemChoice := has("11")
 
 	sshPort := getCurrentSSHPort()
 	if changeSSHPortChoice {
@@ -327,12 +332,21 @@ func main() {
 	adminUser := generateRandomString(8)
 	adminPass := generateRandomString(14)
 
-	fmt.Println("\n" + T.SystemUpdate)
-	err := os.Setenv("DEBIAN_FRONTEND", "noninteractive")
-	if err != nil {
-		return
+	if updateSystemChoice {
+		fmt.Println("\n" + T.SystemUpdate)
+		err := os.Setenv("DEBIAN_FRONTEND", "noninteractive")
+		if err != nil {
+			return
+		}
+		run("bash", "-c", "apt update && apt dist-upgrade -y && apt autoremove -y")
+	} else {
+		// Если полное обновление не выбрано, но требуется установка пакетов,
+		// обновляем только списки пакетов (apt update) для корректной работы apt-get install.
+		if configureUFWChoice || installFail2BanChoice {
+			_ = os.Setenv("DEBIAN_FRONTEND", "noninteractive")
+			run("apt", "update")
+		}
 	}
-	run("bash", "-c", "apt update && apt dist-upgrade -y && apt autoremove -y")
 
 	fmt.Println("\n" + T.Ulimits)
 	setUlimits()
@@ -442,7 +456,7 @@ func applySSHPort(port string) {
 
 	outActive, _ := exec.Command("systemctl", "is-active", "ssh.socket").Output()
 	outEnabled, _ := exec.Command("systemctl", "is-enabled", "ssh.socket").Output()
-	
+
 	isSocket := strings.Contains(string(outActive), "active") || strings.Contains(string(outEnabled), "enabled")
 
 	if isSocket {

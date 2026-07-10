@@ -6,7 +6,7 @@ An automated **Go** script for fast and secure configuration of a new VPS server
 
 ## 🛠 What does this script do?
 
-1.  **System Update:** Runs `apt update && apt dist-upgrade -y && apt autoremove -y` to keep system systems updated along with the latest Linux kernels and clean up orphan packages.
+1.  **System Update (optional):** Runs `apt update && apt dist-upgrade -y && apt autoremove -y` to keep system updated along with the latest Linux kernels and clean up orphan packages (selectable as a menu option).
 2.  **Optimization (ulimit):** Increases open files limit to `65535` for stable proxy performance under load.
 3.  **SSH Port (optional):** Moves SSH to your chosen port (fully supporting Ubuntu 22.04/24.04 and `ssh.socket` mechanisms).
 4.  **Firewall (UFW, optional):** Careful configuration with comments for convenience:
@@ -15,7 +15,7 @@ An automated **Go** script for fast and secure configuration of a new VPS server
     *   **3/tcp**: `#PANEL` — for 3x-ui management.
     *   **10443/tcp**: `#SUBSCRIPTION` — for subscriptions.
     *   **8443/tcp**: For **telemt**.
-5.  **Interactive Component Menu:** Choose exactly what to install using a startup menu (supports comma inputs, exit on `0`, and invalid input protection): **3x-ui**, **telemt**, **WARP watchdog**, **Fail2Ban**, **BBR**, and **Cloudflare DNS**.
+5.  **Interactive Component Menu:** Choose exactly what to install using a startup menu (supports comma inputs, exit on `0`, and invalid input protection): **3x-ui**, **telemt**, **WARP watchdog**, **Fail2Ban**, **BBR**, **Cloudflare DNS**, and **full system/kernel updates**.
 6.  **WARP Watchdog:** A script to monitor Cloudflare WARP on port 40000 with automatic restart upon failure.
 7.  **BBR Acceleration:** Enables the Google BBR algorithm to minimize latency and increase proxy speed.
 8.  **Fail2Ban:** Protects SSH from brute-force attacks by automatically blocking suspicious IPs.
@@ -54,7 +54,7 @@ Upon completion, the script will output a frame in the console with your login d
 
 ## 🛠 Что делает скрипт?
 
-1.  **Обновление системы:** Выполняет `apt update && apt dist-upgrade -y && apt autoremove -y` (полное обновление системы и ядра Linux, а также удаление ненужного системного мусора).
+1.  **Обновление системы (опционально):** Выполняет `apt update && apt dist-upgrade -y && apt autoremove -y` (полное обновление системы и ядра Linux, а также удаление ненужного системного мусора). Теперь этот шаг можно запустить по выбору через меню.
 2.  **Оптимизация (ulimit):** Увеличивает лимит открытых файлов до `65535` для стабильной работы прокси под нагрузкой.
 3.  **Порт SSH (опционально):** Переносит SSH на выбранный вами порт (с полной поддержкой Ubuntu 22.04/24.04 и механизмов `ssh.socket`).
 4.  **Firewall (UFW, опционально):** Тщательная настройка с комментариями для удобства:
@@ -63,7 +63,7 @@ Upon completion, the script will output a frame in the console with your login d
     *   **3/tcp**: `#PANEL` — для управления 3x-ui.
     *   **10443/tcp**: `#SUBSCRIPTION` — для подписок.
     *   **8443/tcp**: Для работы **telemt**.
-5.  **Интерактивное меню компонентов:** Удобный выбор на старте через номера (с выходом по `0` и валидацией ввода). Вы выбираете, ставить ли **3x-ui**, **telemt**, **WARP watchdog**, **Fail2Ban**, **BBR**, или настраивать **Cloudflare DNS**.
+5.  **Интерактивное меню компонентов:** Удобный выбор на старте через номера (с выходом по `0` и валидацией ввода). Вы выбираете, ставить ли **3x-ui**, **telemt**, **WARP watchdog**, **Fail2Ban**, **BBR**, настраивать ли **Cloudflare DNS**, а также запускать ли **полное обновление пакетов и ядра**.
 6.  **WARP Watchdog:** Скрипт для мониторинга Cloudflare WARP на порту 40000 с автоматическим перезапуском при сбоях.
 7.  **Ускорение BBR:** Включает алгоритм Google BBR для минимизации задержек и увеличения скорости прокси.
 8.  **Fail2Ban:** Защищает SSH от брутфорс-атак, автоматически блокируя подозрительные IP.

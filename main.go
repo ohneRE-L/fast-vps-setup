@@ -110,7 +110,7 @@ var ruMsgs = Messages{
 	MenuOption4:      "4. Установка 3x-ui",
 	MenuOption5:      "5. Установка telemt",
 	MenuOption6:      "6. Настройка WARP Watchdog",
-	MenuOption7:      "7. Включение BBR (ускорение)",
+	MenuOption7:      "7. Включение BBR + TCP BDP/TFO (ускорение сети)",
 	MenuOption8:      "8. Установка Fail2Ban",
 	MenuOption9:      "9. Настройка DNS (Cloudflare)",
 	MenuOption10:     "10. Отключить SSH Socket (включить классический SSH Service)",
@@ -162,7 +162,7 @@ var enMsgs = Messages{
 	MenuOption4:      "4. Install 3x-ui",
 	MenuOption5:      "5. Install telemt",
 	MenuOption6:      "6. Setup WARP Watchdog",
-	MenuOption7:      "7. Enable BBR (acceleration)",
+	MenuOption7:      "7. Enable BBR + TCP BDP/TFO (network optimization)",
 	MenuOption8:      "8. Install Fail2Ban",
 	MenuOption9:      "9. Configure DNS (Cloudflare)",
 	MenuOption10:     "10. Disable SSH Socket (enable classic SSH Service)",
@@ -556,7 +556,18 @@ func enableBBR() {
 
 			}
 		}(f)
-		_, _ = f.WriteString("\nnet.core.default_qdisc=fq\nnet.ipv4.tcp_congestion_control=bbr\n")
+		sysctlSettings := `
+# Network BBR, BDP & TFO Optimizations
+net.core.default_qdisc=fq
+net.ipv4.tcp_congestion_control=bbr
+net.ipv4.tcp_fastopen=3
+net.core.rmem_max=67108864
+net.core.wmem_max=67108864
+net.ipv4.tcp_rmem=4096 87380 67108864
+net.ipv4.tcp_wmem=4096 65536 67108864
+net.ipv4.tcp_mtu_probing=1
+`
+		_, _ = f.WriteString(sysctlSettings)
 	}
 	run("sysctl", "-p")
 }

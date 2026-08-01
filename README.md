@@ -17,7 +17,7 @@ An automated **Go** script for fast and secure configuration of a new VPS server
     *   **8443/tcp**: For **telemt**.
 5.  **Interactive Component Menu:** Choose exactly what to install using a startup menu (supports comma inputs, exit on `0`, and invalid input protection): **3x-ui**, **telemt**, **WARP watchdog**, **Fail2Ban**, **BBR**, **Cloudflare DNS**, and **full system/kernel updates**.
 6.  **WARP Watchdog:** A script to monitor Cloudflare WARP on port 40000 with automatic restart upon failure.
-7.  **BBR Acceleration:** Enables the Google BBR algorithm to minimize latency and increase proxy speed.
+7.  **BBR + BDP/TFO Acceleration:** Enables Google BBR, tunes TCP buffer sizes (BDP), enables TCP Fast Open (TFO), and enables MTU probing to maximize throughput and minimize latency for proxies.
 8.  **Fail2Ban:** Protects SSH from brute-force attacks by automatically blocking suspicious IPs.
 9.  **Maximum Security:** If 3x-ui is selected, the script generates a **random login**, **random password**, and a **random secret path** (Web Base Path).
 10. **DNS (Cloudflare):** Setup of fast and reliable DNS server 1.1.1.1 (optional).
@@ -65,7 +65,7 @@ Upon completion, the script will output a frame in the console with your login d
     *   **8443/tcp**: Для работы **telemt**.
 5.  **Интерактивное меню компонентов:** Удобный выбор на старте через номера (с выходом по `0` и валидацией ввода). Вы выбираете, ставить ли **3x-ui**, **telemt**, **WARP watchdog**, **Fail2Ban**, **BBR**, настраивать ли **Cloudflare DNS**, а также запускать ли **полное обновление пакетов и ядра**.
 6.  **WARP Watchdog:** Скрипт для мониторинга Cloudflare WARP на порту 40000 с автоматическим перезапуском при сбоях.
-7.  **Ускорение BBR:** Включает алгоритм Google BBR для минимизации задержек и увеличения скорости прокси.
+7.  **Ускорение BBR + BDP/TFO:** Включает алгоритм Google BBR, оптимизирует буферы TCP (BDP), включает TCP Fast Open (TFO) и зондирование MTU для максимальной скорости и минимального пинга прокси.
 8.  **Fail2Ban:** Защищает SSH от брутфорс-атак, автоматически блокируя подозрительные IP.
 9.  **Максимальная защита:** Если выбран 3x-ui, скрипт сгенерирует **случайный логин**, **случайный пароль** и **случайный секретный путь** (Web Base Path).
 10. **DNS (Cloudflare):** Настройка быстрого и надежного DNS-сервера 1.1.1.1 (опционально).

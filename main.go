@@ -475,6 +475,8 @@ func applySSHPort(port string) {
 
 func configureUFW(sshPort string) {
 	run("apt-get", "install", "-y", "ufw")
+	run("ufw", "default", "deny", "incoming")
+	run("ufw", "default", "allow", "outgoing")
 	run("ufw", "allow", sshPort+"/tcp", "comment", "SSH")
 	run("ufw", "allow", "443/tcp", "comment", "VPN")
 	run("ufw", "allow", "3/tcp", "comment", "PANEL")
@@ -483,6 +485,7 @@ func configureUFW(sshPort string) {
 	run("ufw", "deny", "9000", "comment", "nginx")
 	run("ufw", "deny", "40000", "comment", "warp")
 	run("ufw", "--force", "enable")
+	run("ufw", "reload")
 }
 
 func installTelemt() {

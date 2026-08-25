@@ -96,8 +96,8 @@ var ruMsgs = Messages{
 	Password:         "🔑 Пароль",
 	SSHPort:          "📡 SSH порт",
 	XUICommand:       "Команда 'x-ui' доступна в консоли.",
-	SetupDNS:         "Настроить DNS (Cloudflare 1.1.1.1)?",
-	InstallingDNS:    "[3.5/6] 🌐 Настройка DNS (Cloudflare)...",
+	SetupDNS:         "Настроить DNS (Cloudflare + Google)?",
+	InstallingDNS:    "[3.5/6] 🌐 Настройка DNS (Cloudflare + Google)...",
 	SetupSSHKey:      "Добавить SSH-ключ (и отключить пароли)?",
 	EnterSSHKey:      "👉 Если у вас нет ключа, откройте новый терминал на вашем ПК и введите 'ssh-keygen -t ed25519'.\n👉 Затем скопируйте содержимое файла (обычно ~/.ssh/id_ed25519.pub).\n👉 Введите ваш публичный SSH-ключ:\n",
 	InstallingSSHKey: "[3.7/6] 🔑 Настройка SSH-ключа...",
@@ -112,7 +112,7 @@ var ruMsgs = Messages{
 	MenuOption6:      "6. Настройка WARP Watchdog",
 	MenuOption7:      "7. Включение BBR + TCP BDP/TFO (ускорение сети)",
 	MenuOption8:      "8. Установка Fail2Ban",
-	MenuOption9:      "9. Настройка DNS (Cloudflare)",
+	MenuOption9:      "9. Настройка DNS (Cloudflare + Google)",
 	MenuOption10:     "10. Отключить SSH Socket (включить классический SSH Service)",
 	MenuOption11:     "11. Обновить пакеты и ядро",
 	MenuOption0:      "0. Выход",
@@ -148,8 +148,8 @@ var enMsgs = Messages{
 	Password:         "🔑 Password",
 	SSHPort:          "📡 SSH Port",
 	XUICommand:       "The 'x-ui' command is available in the console.",
-	SetupDNS:         "Configure DNS (Cloudflare 1.1.1.1)?",
-	InstallingDNS:    "[3.5/6] 🌐 Configuring DNS (Cloudflare)...",
+	SetupDNS:         "Configure DNS (Cloudflare + Google)?",
+	InstallingDNS:    "[3.5/6] 🌐 Configuring DNS (Cloudflare + Google)...",
 	SetupSSHKey:      "Add SSH key (and disable passwords)?",
 	EnterSSHKey:      "👉 If you don't have a key, open a new terminal on your PC and run 'ssh-keygen -t ed25519'.\n👉 Then copy the contents of the file (usually ~/.ssh/id_ed25519.pub).\n👉 Enter your public SSH key:\n",
 	InstallingSSHKey: "[3.7/6] 🔑 Configuring SSH key...",
@@ -164,7 +164,7 @@ var enMsgs = Messages{
 	MenuOption6:      "6. Setup WARP Watchdog",
 	MenuOption7:      "7. Enable BBR + TCP BDP/TFO (network optimization)",
 	MenuOption8:      "8. Install Fail2Ban",
-	MenuOption9:      "9. Configure DNS (Cloudflare)",
+	MenuOption9:      "9. Configure DNS (Cloudflare + Google)",
 	MenuOption10:     "10. Disable SSH Socket (enable classic SSH Service)",
 	MenuOption11:     "11. Update packages and kernel",
 	MenuOption0:      "0. Exit",
@@ -585,7 +585,7 @@ func installFail2Ban() {
 }
 
 func setupDNS() {
-	config := "[Resolve]\nDNS=1.1.1.1 1.0.0.1 2606:4700:4700::1111 2606:4700:4700::1001\nFallbackDNS=8.8.8.8 8.8.4.4\nDNSStubListener=yes\n"
+	config := "[Resolve]\nDNS=1.1.1.1 1.0.0.1 8.8.8.8 8.8.4.4 2606:4700:4700::1111 2606:4700:4700::1001 2001:4860:4860::8888 2001:4860:4860::8844\nFallbackDNS=1.0.0.1 8.8.4.4\nDNSStubListener=yes\n"
 	_ = os.MkdirAll("/etc/systemd/resolved.conf.d", 0755)
 	_ = os.WriteFile("/etc/systemd/resolved.conf.d/dns.conf", []byte(config), 0644)
 	run("systemctl", "restart", "systemd-resolved")

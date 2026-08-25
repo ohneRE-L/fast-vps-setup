@@ -390,9 +390,12 @@ func main() {
 		configureUFW(sshPort)
 	}
 
+	// Синхронизация времени для надежной работы TLS/VLESS/Reality
+	run("systemctl", "enable", "--now", "systemd-timesyncd")
+
 	if installFail2BanChoice {
 		fmt.Println("\n" + T.InstallingF2B)
-		installFail2Ban()
+		installFail2Ban(sshPort)
 	}
 
 	if install3xUI {
@@ -538,6 +541,10 @@ fi
 
 	cronJob := "* * * * * root /usr/local/bin/warp-watchdog.sh >/dev/null 2>&1\n"
 	_ = os.WriteFile("/etc/cron.d/warp-watchdog", []byte(cronJob), 0644)
+
+	// Настройка ротации логов для watchdog
+	logrotateCfg := "/var/log/warp-watchdog.log {\n    weekly\n    rotate 4\n    compress\n    missingok\n    notifempty\n}\n"
+	_ = os.WriteFile("/etc/logrotate.d/warp-watchdog", []byte(logrotateCfg), 0644)
 }
 
 func install3xUIOfficial() {
@@ -578,10 +585,13 @@ net.ipv4.tcp_mtu_probing=1
 	run("sysctl", "--system")
 }
 
-func installFail2Ban() {
+func installFail2Ban(sshPort string) {
 	run("apt-get", "install", "-y", "fail2ban")
+	_ = os.MkdirAll("/etc/fail2ban/jail.d", 0755)
+	jailConfig := fmt.Sprintf("[sshd]\nenabled = true\nport = %s\nmaxretry = 5\nfindtime = 10m\nbantime = 1h\n", sshPort)
+	_ = os.WriteFile("/etc/fail2ban/jail.d/sshd.local", []byte(jailConfig), 0644)
 	run("systemctl", "enable", "fail2ban")
-	run("systemctl", "start", "fail2ban")
+	run("systemctl", "restart", "fail2ban")
 }
 
 func setupDNS() {

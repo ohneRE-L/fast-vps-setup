@@ -192,12 +192,21 @@ func generateRandomString(n int) string {
 }
 
 func getIP() string {
-	out, _ := exec.Command("curl", "-s", "https://api.ipify.org").Output()
-	res := strings.TrimSpace(string(out))
-	if res == "" {
-		return "<IP_SERVER>"
+	services := []string{
+		"https://api.ipify.org",
+		"https://ifconfig.me/ip",
+		"https://icanhazip.com",
 	}
-	return res
+	for _, s := range services {
+		out, err := exec.Command("curl", "-s", "--max-time", "3", s).Output()
+		if err == nil {
+			res := strings.TrimSpace(string(out))
+			if res != "" {
+				return res
+			}
+		}
+	}
+	return "<IP_SERVER>"
 }
 
 func askYesNo(prompt string, reader *bufio.Reader) bool {
@@ -430,17 +439,17 @@ func setUlimits() {
 		rLimit.Cur = 65535
 		_ = syscall.Setrlimit(syscall.RLIMIT_NOFILE, &rLimit)
 	}
-	content := "\n* soft nofile 65535\n* hard nofile 65535\nroot soft nofile 65535\nroot hard nofile 65535\n"
-	f, _ := os.OpenFile("/etc/security/limits.conf", os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
-	if f != nil {
-		defer func(f *os.File) {
-			err := f.Close()
-			if err != nil {
 
-			}
-		}(f)
-		_, _ = f.WriteString(content)
-	}
+	// Session limits
+	_ = os.MkdirAll("/etc/security/limits.d", 0755)
+	content := "* soft nofile 65535\n* hard nofile 65535\nroot soft nofile 65535\nroot hard nofile 65535\n"
+	_ = os.WriteFile("/etc/security/limits.d/99-custom.conf", []byte(content), 0644)
+
+	// Systemd service limits
+	_ = os.MkdirAll("/etc/systemd/system.conf.d", 0755)
+	sysdContent := "[Manager]\nDefaultLimitNOFILE=65535:65535\n"
+	_ = os.WriteFile("/etc/systemd/system.conf.d/99-limits.conf", []byte(sysdContent), 0644)
+	run("systemctl", "daemon-reload")
 }
 
 func applySSHPort(port string) {
@@ -478,7 +487,7 @@ func configureUFW(sshPort string) {
 	run("ufw", "default", "deny", "incoming")
 	run("ufw", "default", "allow", "outgoing")
 	run("ufw", "allow", sshPort+"/tcp", "comment", "SSH")
-	run("ufw", "allow", "443/tcp", "comment", "VPN")
+	run("ufw", "allow", "443", "comment", "VPN")
 	run("ufw", "allow", "3/tcp", "comment", "PANEL")
 	run("ufw", "allow", "10443/tcp", "comment", "SUBSCRIPTION")
 	run("ufw", "allow", "8443/tcp")
@@ -526,6 +535,9 @@ fi
 `
 	_ = os.WriteFile("/usr/local/bin/warp-watchdog.sh", []byte(script), 0755)
 	run("chmod", "+x", "/usr/local/bin/warp-watchdog.sh")
+
+	cronJob := "* * * * * root /usr/local/bin/warp-watchdog.sh >/dev/null 2>&1\n"
+	_ = os.WriteFile("/etc/cron.d/warp-watchdog", []byte(cronJob), 0644)
 }
 
 func install3xUIOfficial() {
@@ -551,16 +563,7 @@ func finalConfig(user, pass, path string) {
 }
 
 func enableBBR() {
-	f, _ := os.OpenFile("/etc/sysctl.conf", os.O_APPEND|os.O_WRONLY, 0644)
-	if f != nil {
-		defer func(f *os.File) {
-			err := f.Close()
-			if err != nil {
-
-			}
-		}(f)
-		sysctlSettings := `
-# Network BBR, BDP & TFO Optimizations
+	sysctlSettings := `# Network BBR, BDP & TFO Optimizations
 net.core.default_qdisc=fq
 net.ipv4.tcp_congestion_control=bbr
 net.ipv4.tcp_fastopen=3
@@ -570,9 +573,9 @@ net.ipv4.tcp_rmem=4096 87380 67108864
 net.ipv4.tcp_wmem=4096 65536 67108864
 net.ipv4.tcp_mtu_probing=1
 `
-		_, _ = f.WriteString(sysctlSettings)
-	}
-	run("sysctl", "-p")
+	_ = os.MkdirAll("/etc/sysctl.d", 0755)
+	_ = os.WriteFile("/etc/sysctl.d/99-bbr.conf", []byte(sysctlSettings), 0644)
+	run("sysctl", "--system")
 }
 
 func installFail2Ban() {
@@ -603,12 +606,21 @@ func getCurrentSSHPort() string {
 
 func setupSSHKey(key string) {
 	_ = os.MkdirAll("/root/.ssh", 0700)
-	f, err := os.OpenFile("/root/.ssh/authorized_keys", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
-	if err == nil {
-		_, _ = f.WriteString(key + "\n")
-		f.Close()
+	authKeys, err := os.ReadFile("/root/.ssh/authorized_keys")
+	if err != nil || !strings.Contains(string(authKeys), key) {
+		f, err := os.OpenFile("/root/.ssh/authorized_keys", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
+		if err == nil {
+			_, _ = f.WriteString(key + "\n")
+			_ = f.Close()
+		}
 	}
 
+	// 1. Drop-in config for modern OpenSSH (Ubuntu 22.04+, Debian 12+)
+	_ = os.MkdirAll("/etc/ssh/sshd_config.d", 0755)
+	dropinCfg := "PasswordAuthentication no\nKbdInteractiveAuthentication no\n"
+	_ = os.WriteFile("/etc/ssh/sshd_config.d/99-disable-passwords.conf", []byte(dropinCfg), 0644)
+
+	// 2. Fallback in /etc/ssh/sshd_config for older systems
 	cfg, err := os.ReadFile("/etc/ssh/sshd_config")
 	if err == nil {
 		re := regexp.MustCompile(`(?m)^#?PasswordAuthentication\s+(yes|no)`)
@@ -618,6 +630,7 @@ func setupSSHKey(key string) {
 		}
 		_ = os.WriteFile("/etc/ssh/sshd_config", newCfg, 0644)
 	}
+
 	if err := exec.Command("systemctl", "restart", "sshd").Run(); err != nil {
 		run("systemctl", "restart", "ssh")
 	}

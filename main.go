@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"regexp"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -19,8 +20,11 @@ import (
 type Messages struct {
 	LangSelect       string
 	RootRequired     string
+	DebianOnly       string
 	SSHPortPrompt    string
 	SSHPortEmpty     string
+	InvalidSSHPort   string
+	SSHPortConflict  string
 	ChangeSSH        string
 	SetupUFW         string
 	Install3xUI      string
@@ -29,12 +33,15 @@ type Messages struct {
 	EnableBBR        string
 	InstallF2B       string
 	SystemUpdate     string
+	InstallingTools  string
 	Ulimits          string
+	InstallingSwap   string
 	SSHChange        string
 	UFWSetup         string
 	Installing3x     string
 	InstallingTelemt string
 	InstallingWarp   string
+	WarpNotInstalled string
 	InstallingBBR    string
 	InstallingF2B    string
 	Finalizing       string
@@ -50,6 +57,7 @@ type Messages struct {
 	EnterSSHKey      string
 	InstallingSSHKey string
 	SSHKeyEmpty      string
+	InvalidSSHKey    string
 	SelectComponents string
 	MenuHeader       string
 	MenuOption1      string
@@ -63,16 +71,21 @@ type Messages struct {
 	MenuOption9      string
 	MenuOption10     string
 	MenuOption11     string
+	MenuOption12     string
 	MenuOption0      string
 	ExitMsg          string
 	DisablingSocket  string
+	RebootNotice     string
 }
 
 var ruMsgs = Messages{
 	LangSelect:       "👉 Выберите язык / Select language (1: RU, 2: EN): ",
 	RootRequired:     "Ошибка: запустите скрипт от имени root (sudo)",
+	DebianOnly:       "Ошибка: Этот скрипт предназначен только для систем Debian / Ubuntu!",
 	SSHPortPrompt:    "👉 Введите новый порт для SSH (например, 9049): ",
 	SSHPortEmpty:     "Порт не может быть пустым",
+	InvalidSSHPort:   "Некорректный номер порта. Введите число от 1 до 65535.",
+	SSHPortConflict:  "Этот порт зарезервирован для системных служб или прокси. Выберите другой порт.",
 	ChangeSSH:        "Изменить порт SSH?",
 	SetupUFW:         "Настроить Firewall (UFW)?",
 	Install3xUI:      "Установить 3x-ui?",
@@ -81,12 +94,15 @@ var ruMsgs = Messages{
 	EnableBBR:        "Включить BBR (ускорение сети)?",
 	InstallF2B:       "Установить Fail2Ban (защита от брутфорса)?",
 	SystemUpdate:     "[1/6] 🛠 Обновление системы...",
+	InstallingTools:  "[1.5/6] 🧰 Установка базовых сетевых утилит...",
 	Ulimits:          "[2/6] 🚀 Настройка лимитов...",
+	InstallingSwap:   "[2.7/6] 💾 Настройка файла подкачки Swap (2 GB)...",
 	SSHChange:        "[3/6] 🔒 Смена порта SSH на ",
 	UFWSetup:         "[4/6] 🧱 Настройка Firewall...",
 	Installing3x:     "[5/6] 📥 Установка 3x-ui...",
 	InstallingTelemt: "[5.5/6] 📥 Установка telemt...",
 	InstallingWarp:   "[6.5/6] 🛡 Настройка WARP Watchdog...",
+	WarpNotInstalled: "WARP (warp-svc) не установлен на сервере! Сначала установите Cloudflare WARP.",
 	InstallingBBR:    "[2.5/6] ⚡️ Включение BBR...",
 	InstallingF2B:    "[4.5/6] 🛡 Установка Fail2Ban...",
 	Finalizing:       "[6/6] ⚙️ Финализация настроек...",
@@ -102,7 +118,8 @@ var ruMsgs = Messages{
 	EnterSSHKey:      "👉 Если у вас нет ключа, откройте новый терминал на вашем ПК и введите 'ssh-keygen -t ed25519'.\n👉 Затем скопируйте содержимое файла (обычно ~/.ssh/id_ed25519.pub).\n👉 Введите ваш публичный SSH-ключ:\n",
 	InstallingSSHKey: "[3.7/6] 🔑 Настройка SSH-ключа...",
 	SSHKeyEmpty:      "SSH-ключ не может быть пустым",
-	SelectComponents: "Введите номера через запятую (например, 1,4,7) или 'all' для всего: ",
+	InvalidSSHKey:    "Некорректный формат публичного SSH-ключа (должен начинаться с ssh-ed25519, ssh-rsa, ecdsa-...)",
+	SelectComponents: "Введите номера через запятую или диапазоны (например, 1-4,7,12) или 'all' для всего: ",
 	MenuHeader:       "--- СПИСОК КОМПОНЕНТОВ ---",
 	MenuOption1:      "1. Смена порта SSH",
 	MenuOption2:      "2. Установка SSH-ключа (рекомендуется)",
@@ -115,16 +132,21 @@ var ruMsgs = Messages{
 	MenuOption9:      "9. Настройка DNS (Cloudflare + Google)",
 	MenuOption10:     "10. Отключить SSH Socket (включить классический SSH Service)",
 	MenuOption11:     "11. Обновить пакеты и ядро",
+	MenuOption12:     "12. Настройка Swap (2 GB)",
 	MenuOption0:      "0. Выход",
 	ExitMsg:          "Выход из скрипта...",
 	DisablingSocket:  "[3.1/6] ⚙️ Отключение SSH Socket и запуск классического SSH Service...",
+	RebootNotice:     "⚠️ Рекомендуется перезагрузить сервер (команда 'reboot') для применения изменений ядра и BBR.",
 }
 
 var enMsgs = Messages{
 	LangSelect:       "👉 Выберите язык / Select language (1: RU, 2: EN): ",
 	RootRequired:     "Error: run the script as root (sudo)",
+	DebianOnly:       "Error: This script is only intended for Debian / Ubuntu systems!",
 	SSHPortPrompt:    "👉 Enter new SSH port (e.g., 9049): ",
 	SSHPortEmpty:     "Port cannot be empty",
+	InvalidSSHPort:   "Invalid port number. Enter a number between 1 and 65535.",
+	SSHPortConflict:  "This port is reserved for system services or proxies. Choose another port.",
 	ChangeSSH:        "Change SSH port?",
 	SetupUFW:         "Configure Firewall (UFW)?",
 	Install3xUI:      "Install 3x-ui?",
@@ -133,12 +155,15 @@ var enMsgs = Messages{
 	EnableBBR:        "Enable BBR (network optimization)?",
 	InstallF2B:       "Install Fail2Ban (brute-force protection)?",
 	SystemUpdate:     "[1/6] 🛠 System update...",
+	InstallingTools:  "[1.5/6] 🧰 Installing essential network utilities...",
 	Ulimits:          "[2/6] 🚀 Setting limits...",
+	InstallingSwap:   "[2.7/6] 💾 Setting up Swap file (2 GB)...",
 	SSHChange:        "[3/6] 🔒 Changing SSH port to ",
 	UFWSetup:         "[4/6] 🧱 Configuring Firewall...",
 	Installing3x:     "[5/6] 📥 Installing 3x-ui...",
 	InstallingTelemt: "[5.5/6] 📥 Installing telemt...",
 	InstallingWarp:   "[6.5/6] 🛡 Setting up WARP Watchdog...",
+	WarpNotInstalled: "WARP (warp-svc) is not installed on this server! Please install Cloudflare WARP first.",
 	InstallingBBR:    "[2.5/6] ⚡️ Enabling BBR...",
 	InstallingF2B:    "[4.5/6] 🛡 Installing Fail2Ban...",
 	Finalizing:       "[6/6] ⚙️ Finalizing settings...",
@@ -154,7 +179,8 @@ var enMsgs = Messages{
 	EnterSSHKey:      "👉 If you don't have a key, open a new terminal on your PC and run 'ssh-keygen -t ed25519'.\n👉 Then copy the contents of the file (usually ~/.ssh/id_ed25519.pub).\n👉 Enter your public SSH key:\n",
 	InstallingSSHKey: "[3.7/6] 🔑 Configuring SSH key...",
 	SSHKeyEmpty:      "SSH key cannot be empty",
-	SelectComponents: "Enter numbers separated by comma (e.g., 1,4,7) or 'all': ",
+	InvalidSSHKey:    "Invalid SSH public key format (must start with ssh-ed25519, ssh-rsa, ecdsa-...)",
+	SelectComponents: "Enter numbers separated by comma or ranges (e.g., 1-4,7,12) or 'all': ",
 	MenuHeader:       "--- COMPONENT LIST ---",
 	MenuOption1:      "1. Change SSH Port",
 	MenuOption2:      "2. Setup SSH Key (Recommended)",
@@ -167,9 +193,11 @@ var enMsgs = Messages{
 	MenuOption9:      "9. Configure DNS (Cloudflare + Google)",
 	MenuOption10:     "10. Disable SSH Socket (enable classic SSH Service)",
 	MenuOption11:     "11. Update packages and kernel",
+	MenuOption12:     "12. Setup Swap (2 GB)",
 	MenuOption0:      "0. Exit",
 	ExitMsg:          "Exiting script...",
 	DisablingSocket:  "[3.1/6] ⚙️ Disabling SSH Socket and starting classic SSH Service...",
+	RebootNotice:     "⚠️ It is recommended to reboot the server ('reboot' command) to apply kernel and BBR changes.",
 }
 
 var T Messages
@@ -209,6 +237,91 @@ func getIP() string {
 	return "<IP_SERVER>"
 }
 
+func isValidPort(p string) bool {
+	port, err := strconv.Atoi(p)
+	if err != nil {
+		return false
+	}
+	return port >= 1 && port <= 65535
+}
+
+func isValidSSHPublicKey(k string) bool {
+	k = strings.TrimSpace(k)
+	prefixes := []string{
+		"ssh-rsa",
+		"ssh-ed25519",
+		"ecdsa-sha2-nistp256",
+		"ecdsa-sha2-nistp384",
+		"ecdsa-sha2-nistp521",
+		"sk-ssh-ed25519@openssh.com",
+		"sk-ecdsa-sha2-nistp256@openssh.com",
+	}
+	for _, prefix := range prefixes {
+		if strings.HasPrefix(k, prefix) {
+			parts := strings.Fields(k)
+			return len(parts) >= 2
+		}
+	}
+	return false
+}
+
+func parseSelection(input string, maxOption int) (map[string]bool, bool) {
+	input = strings.ToLower(strings.TrimSpace(input))
+	if input == "0" || input == "" {
+		return nil, false
+	}
+	res := make(map[string]bool)
+	if input == "all" {
+		for i := 1; i <= maxOption; i++ {
+			res[fmt.Sprintf("%d", i)] = true
+		}
+		return res, true
+	}
+
+	tokens := strings.FieldsFunc(input, func(r rune) bool {
+		return r == ',' || r == ' ' || r == ';'
+	})
+
+	for _, token := range tokens {
+		if strings.Contains(token, "-") {
+			parts := strings.Split(token, "-")
+			if len(parts) != 2 {
+				return nil, false
+			}
+			start, err1 := strconv.Atoi(strings.TrimSpace(parts[0]))
+			end, err2 := strconv.Atoi(strings.TrimSpace(parts[1]))
+			if err1 != nil || err2 != nil || start > end || start < 1 || end > maxOption {
+				return nil, false
+			}
+			for i := start; i <= end; i++ {
+				res[fmt.Sprintf("%d", i)] = true
+			}
+		} else {
+			val, err := strconv.Atoi(token)
+			if err != nil || val < 1 || val > maxOption {
+				return nil, false
+			}
+			res[fmt.Sprintf("%d", val)] = true
+		}
+	}
+
+	if len(res) == 0 {
+		return nil, false
+	}
+	return res, true
+}
+
+func waitForFile(path string, timeout time.Duration) bool {
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		if fi, err := os.Stat(path); err == nil && !fi.IsDir() {
+			return true
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
+	return false
+}
+
 func askYesNo(prompt string, reader *bufio.Reader) bool {
 	for {
 		fmt.Printf("👉 %s (y/n): ", prompt)
@@ -224,8 +337,11 @@ func askYesNo(prompt string, reader *bufio.Reader) bool {
 }
 
 func main() {
+	if _, err := os.Stat("/etc/debian_version"); os.IsNotExist(err) {
+		log.Fatalf("❌ Error: This script is only intended for Debian / Ubuntu! / Ошибка: Этот скрипт предназначен только для Debian / Ubuntu!")
+	}
 	if os.Getuid() != 0 {
-		log.Fatalf("Error: root required")
+		log.Fatalf("❌ Error: root required / Ошибка: требуется root (sudo)")
 	}
 
 	reader := bufio.NewReader(os.Stdin)
@@ -256,84 +372,68 @@ func main() {
 	fmt.Println(T.MenuOption9)
 	fmt.Println(T.MenuOption10)
 	fmt.Println(T.MenuOption11)
+	fmt.Println(T.MenuOption12)
 	fmt.Println(T.MenuOption0)
 	fmt.Print("\n" + T.SelectComponents)
 
 	selection, _ := reader.ReadString('\n')
-	selection = strings.ToLower(strings.TrimSpace(selection))
-
-	if selection == "0" || selection == "" {
+	chosen, ok := parseSelection(selection, 12)
+	if !ok {
 		fmt.Println(T.ExitMsg)
 		os.Exit(0)
 	}
 
-	isAll := selection == "all"
-
-	// Если не "all", проверяем на наличие невалидных символов (цифр не из списка)
-	if !isAll {
-		tokens := strings.FieldsFunc(selection, func(r rune) bool {
-			return r == ',' || r == ' '
-		})
-		for _, t := range tokens {
-			valid := false
-			for i := 1; i <= 11; i++ {
-				if t == fmt.Sprintf("%d", i) {
-					valid = true
-					break
-				}
-			}
-			if !valid {
-				fmt.Println(T.ExitMsg)
-				os.Exit(0)
-			}
-		}
-	}
-
-	has := func(s string) bool {
-		if isAll {
-			return true
-		}
-		// Используем более точный поиск (разбиваем на токены)
-		tokens := strings.FieldsFunc(selection, func(r rune) bool {
-			return r == ',' || r == ' '
-		})
-		for _, t := range tokens {
-			if t == s {
-				return true
-			}
-		}
-		return false
-	}
-
-	changeSSHPortChoice := has("1")
-	setupSSHKeyChoice := has("2")
-	configureUFWChoice := has("3")
-	install3xUI := has("4")
-	installTelemtChoice := has("5")
-	installWarpWatchdogChoice := has("6")
-	enableBBRChoice := has("7")
-	installFail2BanChoice := has("8")
-	setupDNSChoice := has("9")
-	disableSSHSocketChoice := has("10")
-	updateSystemChoice := has("11")
+	changeSSHPortChoice := chosen["1"]
+	setupSSHKeyChoice := chosen["2"]
+	configureUFWChoice := chosen["3"]
+	install3xUI := chosen["4"]
+	installTelemtChoice := chosen["5"]
+	installWarpWatchdogChoice := chosen["6"]
+	enableBBRChoice := chosen["7"]
+	installFail2BanChoice := chosen["8"]
+	setupDNSChoice := chosen["9"]
+	disableSSHSocketChoice := chosen["10"]
+	updateSystemChoice := chosen["11"]
+	setupSwapChoice := chosen["12"]
 
 	sshPort := getCurrentSSHPort()
 	if changeSSHPortChoice {
-		fmt.Print(T.SSHPortPrompt)
-		input, _ := reader.ReadString('\n')
-		input = strings.TrimSpace(input)
-		if input != "" {
+		for {
+			fmt.Print(T.SSHPortPrompt)
+			input, _ := reader.ReadString('\n')
+			input = strings.TrimSpace(input)
+			if input == "" {
+				fmt.Println("⚠️ " + T.SSHPortEmpty)
+				continue
+			}
+			if !isValidPort(input) {
+				fmt.Println("⚠️ " + T.InvalidSSHPort)
+				continue
+			}
+			if input == "3" || input == "443" || input == "8443" || input == "10443" || input == "40000" || input == "9000" {
+				fmt.Printf("⚠️ %s (%s)\n", T.SSHPortConflict, input)
+				continue
+			}
 			sshPort = input
+			break
 		}
 	}
 
 	sshKey := ""
 	if setupSSHKeyChoice {
-		fmt.Print(T.EnterSSHKey)
-		input, _ := reader.ReadString('\n')
-		sshKey = strings.TrimSpace(input)
-		if sshKey == "" {
-			log.Fatal(T.SSHKeyEmpty)
+		for {
+			fmt.Print(T.EnterSSHKey)
+			input, _ := reader.ReadString('\n')
+			sshKey = strings.TrimSpace(input)
+			if sshKey == "" {
+				fmt.Println("⚠️ " + T.SSHKeyEmpty)
+				continue
+			}
+			if !isValidSSHPublicKey(sshKey) {
+				fmt.Println("⚠️ " + T.InvalidSSHKey)
+				continue
+			}
+			break
 		}
 	}
 
@@ -343,22 +443,26 @@ func main() {
 
 	if updateSystemChoice {
 		fmt.Println("\n" + T.SystemUpdate)
-		err := os.Setenv("DEBIAN_FRONTEND", "noninteractive")
-		if err != nil {
-			return
-		}
+		_ = os.Setenv("DEBIAN_FRONTEND", "noninteractive")
 		run("bash", "-c", "apt update && apt dist-upgrade -y && apt autoremove -y")
+		fmt.Println("\n" + T.InstallingTools)
+		installBasicUtilities()
 	} else {
-		// Если полное обновление не выбрано, но требуется установка пакетов,
-		// обновляем только списки пакетов (apt update) для корректной работы apt-get install.
-		if configureUFWChoice || installFail2BanChoice {
+		if configureUFWChoice || installFail2BanChoice || setupDNSChoice || install3xUI || installTelemtChoice || setupSwapChoice {
 			_ = os.Setenv("DEBIAN_FRONTEND", "noninteractive")
 			run("apt", "update")
+			fmt.Println("\n" + T.InstallingTools)
+			installBasicUtilities()
 		}
 	}
 
 	fmt.Println("\n" + T.Ulimits)
 	setUlimits()
+
+	if setupSwapChoice {
+		fmt.Println("\n" + T.InstallingSwap)
+		setupSwap()
+	}
 
 	if enableBBRChoice {
 		fmt.Println("\n" + T.InstallingBBR)
@@ -433,6 +537,46 @@ func main() {
 	if install3xUI {
 		fmt.Println(T.XUICommand)
 	}
+
+	if updateSystemChoice || enableBBRChoice {
+		fmt.Println("\n" + T.RebootNotice)
+	}
+}
+
+func installBasicUtilities() {
+	_ = os.Setenv("DEBIAN_FRONTEND", "noninteractive")
+	run("apt-get", "install", "-y", "curl", "wget", "htop", "iftop", "iotop", "net-tools", "dnsutils", "jq", "socat", "tar", "unzip", "ca-certificates")
+}
+
+func setupSwap() {
+	out, _ := exec.Command("swapon", "--show").Output()
+	if strings.TrimSpace(string(out)) != "" {
+		return
+	}
+	if _, err := os.Stat("/swapfile"); err == nil {
+		return
+	}
+
+	cmd := exec.Command("fallocate", "-l", "2G", "/swapfile")
+	if err := cmd.Run(); err != nil {
+		run("dd", "if=/dev/zero", "of=/swapfile", "bs=1M", "count=2048", "status=none")
+	}
+	run("chmod", "600", "/swapfile")
+	run("mkswap", "/swapfile")
+	run("swapon", "/swapfile")
+
+	fstab, err := os.ReadFile("/etc/fstab")
+	if err == nil && !strings.Contains(string(fstab), "/swapfile") {
+		f, err := os.OpenFile("/etc/fstab", os.O_APPEND|os.O_WRONLY, 0644)
+		if err == nil {
+			_, _ = f.WriteString("\n/swapfile none swap sw 0 0\n")
+			_ = f.Close()
+		}
+	}
+
+	_ = os.MkdirAll("/etc/sysctl.d", 0755)
+	_ = os.WriteFile("/etc/sysctl.d/99-swap.conf", []byte("vm.swappiness=10\n"), 0644)
+	run("sysctl", "-w", "vm.swappiness=10")
 }
 
 func setUlimits() {
@@ -506,6 +650,14 @@ func installTelemt() {
 }
 
 func setupWarpWatchdog() {
+	// Проверяем наличие warp-svc или warp-cli
+	_, errPath := exec.LookPath("warp-cli")
+	_, errStat := os.Stat("/usr/bin/warp-svc")
+	if errPath != nil && os.IsNotExist(errStat) {
+		fmt.Println("⚠️ " + T.WarpNotInstalled)
+		return
+	}
+
 	script := `#!/bin/bash
 
 LOG_FILE="/var/log/warp-watchdog.log"
@@ -558,7 +710,11 @@ func install3xUIOfficial() {
 }
 
 func finalConfig(user, pass, path string) {
-	time.Sleep(5 * time.Second)
+	if !waitForFile("/usr/local/x-ui/x-ui", 30*time.Second) {
+		log.Println("⚠️ /usr/local/x-ui/x-ui not found, retrying configuration...")
+	}
+	time.Sleep(2 * time.Second)
+
 	fullPath := "/" + path + "/"
 	_ = exec.Command("/usr/local/x-ui/x-ui", "setting", "-username", user, "-password", pass, "-port", "3", "-webBasePath", fullPath).Run()
 
@@ -570,6 +726,10 @@ func finalConfig(user, pass, path string) {
 }
 
 func enableBBR() {
+	run("modprobe", "tcp_bbr")
+	_ = os.MkdirAll("/etc/modules-load.d", 0755)
+	_ = os.WriteFile("/etc/modules-load.d/bbr.conf", []byte("tcp_bbr\n"), 0644)
+
 	sysctlSettings := `# Network BBR, BDP & TFO Optimizations
 net.core.default_qdisc=fq
 net.ipv4.tcp_congestion_control=bbr
@@ -588,16 +748,18 @@ net.ipv4.tcp_mtu_probing=1
 func installFail2Ban(sshPort string) {
 	run("apt-get", "install", "-y", "fail2ban")
 	_ = os.MkdirAll("/etc/fail2ban/jail.d", 0755)
-	jailConfig := fmt.Sprintf("[sshd]\nenabled = true\nport = %s\nmaxretry = 5\nfindtime = 10m\nbantime = 1h\n", sshPort)
+	jailConfig := fmt.Sprintf("[sshd]\nenabled = true\nbackend = systemd\nport = %s\nmaxretry = 5\nfindtime = 10m\nbantime = 1h\n", sshPort)
 	_ = os.WriteFile("/etc/fail2ban/jail.d/sshd.local", []byte(jailConfig), 0644)
 	run("systemctl", "enable", "fail2ban")
 	run("systemctl", "restart", "fail2ban")
 }
 
 func setupDNS() {
+	run("apt-get", "install", "-y", "systemd-resolved")
 	config := "[Resolve]\nDNS=1.1.1.1 1.0.0.1 8.8.8.8 8.8.4.4 2606:4700:4700::1111 2606:4700:4700::1001 2001:4860:4860::8888 2001:4860:4860::8844\nFallbackDNS=1.0.0.1 8.8.4.4\nDNSStubListener=yes\n"
 	_ = os.MkdirAll("/etc/systemd/resolved.conf.d", 0755)
 	_ = os.WriteFile("/etc/systemd/resolved.conf.d/dns.conf", []byte(config), 0644)
+	run("systemctl", "enable", "--now", "systemd-resolved")
 	run("systemctl", "restart", "systemd-resolved")
 }
 

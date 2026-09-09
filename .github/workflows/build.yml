@@ -1,14 +1,18 @@
-name: Build Binaries
+name: Build and Release Binaries
 
 on:
   push:
     branches: [ main ]
+    tags:
+      - 'v*'
   pull_request:
     branches: [ main ]
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -16,7 +20,8 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.23'
+          go-version: '1.26'
+
 
       - name: Build AMD64
         env:
@@ -34,3 +39,17 @@ jobs:
           GOARCH: arm64
         run: |
           go build -ldflags="-s -w" -o setup_server_arm64 main.go
+
+      - name: Publish Release Assets
+        uses: softprops/action-gh-release@v2
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/'))
+        with:
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'latest' }}
+          name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'Latest Release' }}
+          prerelease: false
+          files: |
+            setup_server
+            setup_server_amd64
+            setup_server_arm64
+
+

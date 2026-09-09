@@ -21,8 +21,11 @@ An automated **Go** script for fast and secure configuration of a new VPS server
 8.  **Fail2Ban:** Protects SSH from brute-force attacks by automatically blocking suspicious IPs.
 9.  **Maximum Security:** If 3x-ui is selected, the script generates a **random login**, **random password**, and a **random secret path** (Web Base Path).
 10. **DNS (Cloudflare + Google):** Setup of fast and reliable DNS servers (1.1.1.1 and 8.8.8.8) (optional).
-11. **SSH Key Setup:** Optional addition of your public SSH key for secure login and complete disablement of password authentication.
+11. **SSH Key Setup:** Optional addition of your public SSH key for secure login with validation and complete disablement of password authentication.
 12. **SSH Socket Disabling (optional):** Disables systemd `ssh.socket` activation (introduced in Ubuntu 24.04) and switches to the classic, isolated `ssh.service` (sshd) for reliable port management.
+13. **Swap Setup (optional):** Creates a 2 GB swapfile with optimal swappiness tuning (`vm.swappiness=10`) — essential for budget VPS instances with 512MB–1GB RAM.
+14. **Essential Utilities:** Installs core network and diagnostic tools (`curl`, `wget`, `htop`, `iftop`, `iotop`, `net-tools`, `dnsutils`, `jq`, `socat`, `tar`, `unzip`, `ca-certificates`).
+15. **Safety & Protection:** Input validation for ports and SSH keys to prevent server lockout, plus Debian / Ubuntu OS verification.
 ---
 
 ## 🚀 Installation
@@ -69,8 +72,11 @@ Upon completion, the script will output a frame in the console with your login d
 8.  **Fail2Ban:** Защищает SSH от брутфорс-атак, автоматически блокируя подозрительные IP.
 9.  **Максимальная защита:** Если выбран 3x-ui, скрипт сгенерирует **случайный логин**, **случайный пароль** и **случайный секретный путь** (Web Base Path).
 10. **DNS (Cloudflare + Google):** Настройка быстрых и надежных DNS-серверов (1.1.1.1 и 8.8.8.8) (опционально).
-11. **Настройка SSH-ключа:** Опциональное добавление вашего публичного SSH-ключа для безопасного входа и полное отключение парольной авторизации.
+11. **Настройка SSH-ключа:** Опциональное добавление вашего публичного SSH-ключа для безопасного входа (с валидацией формата) и полное отключение парольной авторизации.
 12. **Отключение SSH Socket (опционально):** Полное отключение `ssh.socket` активации systemd (появившейся в Ubuntu 24.04) и возврат к классической изолированной службе `ssh.service` (sshd) для более надежной смены портов.
+13. **Настройка Swap (опционально):** Создание файла подкачки на 2 ГБ с оптимизацией `vm.swappiness=10` — критично для стабильности слабых VPS с 512MB–1GB RAM.
+14. **Базовый набор утилит:** Установка ключевых системных и сетевых инструментов (`curl`, `wget`, `htop`, `iftop`, `iotop`, `net-tools`, `dnsutils`, `jq`, `socat`, `tar`, `unzip`, `ca-certificates`).
+15. **Защита от lockout:** Валидация вводимых портов и SSH-ключей перед применением настроек, а также проверка дистрибутива (Debian / Ubuntu).
 ---
 
 ## 🚀 Установка

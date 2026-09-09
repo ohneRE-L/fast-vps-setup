@@ -7,3 +7,7 @@ vendor/
 .idea/
 .vscode/
 *.swp
+
+# Скомпилированные бинарники
+/setup_server*
+/bin/

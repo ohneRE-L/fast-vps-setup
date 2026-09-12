@@ -52,4 +52,4 @@ fi
 chmod +x /usr/local/bin/setup_server
 
 # Запускаем
-exec /usr/local/bin/setup_server
+exec /usr/local/bin/setup_server

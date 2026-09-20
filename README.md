@@ -26,7 +26,7 @@ An automated **Go** script for fast and secure configuration of a new VPS server
 13. **Swap Setup (optional):** Creates a 2 GB swapfile with optimal swappiness tuning (`vm.swappiness=10`) — essential for budget VPS instances with 512MB–1GB RAM.
 14. **Essential Utilities:** Installs core network and diagnostic tools (`curl`, `wget`, `htop`, `iftop`, `iotop`, `net-tools`, `dnsutils`, `jq`, `socat`, `tar`, `unzip`, `ca-certificates`).
 15. **Safety & Protection:** Input validation for ports and SSH keys to prevent server lockout, plus Debian / Ubuntu OS verification.
-16. **OpenFlux Exit Node:** Installs [OpenFlux](https://github.com/p1neappleXpress/OpenFlux), sets up high-performance L3 exit node over covert transports (Yandex.Docs, Mail.ru Docs, Cups.online, MAX/OneMe, Volga), enables Linux kernel packet forwarding, applies kernel RST-drop iptables rules, configures background `openflux.service` with auto-recovery, and provides convenient `openflux-mgr` CLI tool.
+16. **OpenFlux Exit Node & Removal:** Installs [OpenFlux](https://github.com/p1neappleXpress/OpenFlux), sets up high-performance L3 exit node over covert transports (Yandex.Docs, Mail.ru Docs, Cups.online, MAX/OneMe, Volga), enables Linux kernel packet forwarding, applies kernel RST-drop iptables rules, configures background `openflux.service` with auto-recovery, and provides convenient `openflux-mgr` CLI tool. Also includes full uninstallation option (Option 14 or via `openflux-mgr uninstall`).
 ---
 
 ## 🚀 Installation
@@ -53,7 +53,7 @@ Upon completion, the script will output configuration frames for your chosen ser
 ### OpenFlux (if installed)
 *   **Config file:** `/etc/openflux/openflux.conf`
 *   **Secret key (optional):** `/etc/openflux/secret.key`
-*   **Service management:** `openflux-mgr {status|logs|restart|start|stop|config}` or `systemctl status openflux`
+*   **Service management:** `openflux-mgr {status|logs|restart|start|stop|config|uninstall}` or `systemctl status openflux`
 *   **Client launch example:**
     *   **macOS (TUN):** `sudo openflux -r client -i tun -t <transport> -u "<doc_url>" [--encryption-key-file=secret.key]`
     *   **Windows / Linux (SOCKS5):** `openflux -r client -i socks5 -t <transport> -u "<doc_url>" -s :1080 [--encryption-key-file=secret.key]`
@@ -88,7 +88,7 @@ Upon completion, the script will output configuration frames for your chosen ser
 13. **Настройка Swap (опционально):** Создание файла подкачки на 2 ГБ с оптимизацией `vm.swappiness=10` — критично для стабильности слабых VPS с 512MB–1GB RAM.
 14. **Базовый набор утилит:** Установка ключевых системных и сетевых инструментов (`curl`, `wget`, `htop`, `iftop`, `iotop`, `net-tools`, `dnsutils`, `jq`, `socat`, `tar`, `unzip`, `ca-certificates`).
 15. **Защита от lockout:** Валидация вводимых портов и SSH-ключей перед применением настроек, а также проверка дистрибутива (Debian / Ubuntu).
-16. **OpenFlux Exit Node:** Установка [OpenFlux](https://github.com/p1neappleXpress/OpenFlux), быстрая настройка L3 выходной ноды через covert-транспорты (Яндекс.Документы, Mail.ru Docs, Cups.online, MAX/OneMe, Volga), автоматическое включение IP-форвардинга ядра, блокировка RST-пакетов через iptables, служба автозапуска `openflux.service` и утилита управления `openflux-mgr`.
+16. **OpenFlux Exit Node и удаление:** Установка [OpenFlux](https://github.com/p1neappleXpress/OpenFlux), быстрая настройка L3 выходной ноды через covert-транспорты (Яндекс.Документы, Mail.ru Docs, Cups.online, MAX/OneMe, Volga), автоматическое включение IP-форвардинга ядра, блокировка RST-пакетов через iptables, служба автозапуска `openflux.service` и утилита управления `openflux-mgr`. Также предусмотрено полное и чистое удаление (пункт 14 в меню или команда `openflux-mgr uninstall`).
 ---
 
 ## 🚀 Установка
@@ -115,7 +115,7 @@ bash -c "$(curl -sL https://raw.githubusercontent.com/ohneRE-L/fast-vps-setup/ma
 ### OpenFlux (если выбран)
 *   **Файл конфигурации:** `/etc/openflux/openflux.conf`
 *   **Файл ключа (при включении):** `/etc/openflux/secret.key`
-*   **Управление службой:** `openflux-mgr {status|logs|restart|start|stop|config}` или `systemctl status openflux`
+*   **Управление службой:** `openflux-mgr {status|logs|restart|start|stop|config|uninstall}` или `systemctl status openflux`
 *   **Примеры запуска клиента:**
     *   **macOS (TUN):** `sudo openflux -r client -i tun -t <транспорт> -u "<ссылка_на_документ>" [--encryption-key-file=secret.key]`
     *   **Windows / Linux (SOCKS5):** `openflux -r client -i socks5 -t <транспорт> -u "<ссылка_на_документ>" -s :1080 [--encryption-key-file=secret.key]`

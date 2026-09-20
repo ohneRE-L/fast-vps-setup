@@ -74,6 +74,7 @@ type Messages struct {
 	MenuOption11            string
 	MenuOption12            string
 	MenuOption13            string
+	MenuOption14            string
 	MenuOption0             string
 	ExitMsg                 string
 	DisablingSocket         string
@@ -87,6 +88,10 @@ type Messages struct {
 	OpenFluxOneMeUID        string
 	OpenFluxEncryptPrompt   string
 	InstallingOpenFlux      string
+	UninstallingOpenFlux    string
+	OpenFluxUninstalled     string
+	OpenFluxAlreadyInstalled string
+	OpenFluxReinstallChoice string
 	OpenFluxHeader          string
 	OpenFluxTransport       string
 	OpenFluxURL             string
@@ -152,6 +157,7 @@ var ruMsgs = Messages{
 	MenuOption11:     "11. Обновить пакеты и ядро",
 	MenuOption12:            "12. Настройка Swap (2 GB)",
 	MenuOption13:            "13. Установка и настройка OpenFlux (Exit Node туннель)",
+	MenuOption14:            "14. Удаление OpenFlux",
 	MenuOption0:             "0. Выход",
 	ExitMsg:                 "Выход из скрипта...",
 	DisablingSocket:         "[3.1/6] ⚙️ Отключение SSH Socket и запуск классического SSH Service...",
@@ -165,6 +171,10 @@ var ruMsgs = Messages{
 	OpenFluxOneMeUID:        "👉 Введите MAX Call User ID (--maxUid): ",
 	OpenFluxEncryptPrompt:   "Включить сквозное шифрование AES-256-GCM (будет сгенерирован секретный ключ)?",
 	InstallingOpenFlux:      "[5.7/6] 📥 Установка и настройка OpenFlux (Exit Node)...",
+	UninstallingOpenFlux:    "[5.8/6] 🗑 Удаление OpenFlux...",
+	OpenFluxUninstalled:     "✅ OpenFlux успешно и полностью удален из системы.",
+	OpenFluxAlreadyInstalled: "OpenFlux уже установлен на этом сервере.",
+	OpenFluxReinstallChoice: "Выберите действие:\n  1. Переустановить / изменить параметры (по умолчанию)\n  2. Удалить OpenFlux\nВаш выбор [1/2, Enter = 1]: ",
 	OpenFluxHeader:          "🛡 OPENFLUX НАСТРОЕН И ЗАПУЩЕН",
 	OpenFluxTransport:       "📡 Транспорт",
 	OpenFluxURL:             "🔗 Документ/URL",
@@ -230,6 +240,7 @@ var enMsgs = Messages{
 	MenuOption11:     "11. Update packages and kernel",
 	MenuOption12:            "12. Setup Swap (2 GB)",
 	MenuOption13:            "13. Install & configure OpenFlux (Exit Node tunnel)",
+	MenuOption14:            "14. Uninstall OpenFlux",
 	MenuOption0:             "0. Exit",
 	ExitMsg:                 "Exiting script...",
 	DisablingSocket:         "[3.1/6] ⚙️ Disabling SSH Socket and starting classic SSH Service...",
@@ -243,6 +254,10 @@ var enMsgs = Messages{
 	OpenFluxOneMeUID:        "👉 Enter MAX Call User ID (--maxUid): ",
 	OpenFluxEncryptPrompt:   "Enable end-to-end AES-256-GCM encryption (a secret key will be generated)?",
 	InstallingOpenFlux:      "[5.7/6] 📥 Installing and configuring OpenFlux (Exit Node)...",
+	UninstallingOpenFlux:    "[5.8/6] 🗑 Uninstalling OpenFlux...",
+	OpenFluxUninstalled:      "✅ OpenFlux has been completely uninstalled from the system.",
+	OpenFluxAlreadyInstalled: "OpenFlux is already installed on this server.",
+	OpenFluxReinstallChoice:  "Choose action:\n  1. Reinstall / update parameters (default)\n  2. Uninstall OpenFlux\nYour choice [1/2, Enter = 1]: ",
 	OpenFluxHeader:          "🛡 OPENFLUX CONFIGURED & RUNNING",
 	OpenFluxTransport:       "📡 Transport",
 	OpenFluxURL:             "🔗 Document/URL",
@@ -426,11 +441,12 @@ func main() {
 	fmt.Println(T.MenuOption11)
 	fmt.Println(T.MenuOption12)
 	fmt.Println(T.MenuOption13)
+	fmt.Println(T.MenuOption14)
 	fmt.Println(T.MenuOption0)
 	fmt.Print("\n" + T.SelectComponents)
 
 	selection, _ := reader.ReadString('\n')
-	chosen, ok := parseSelection(selection, 13)
+	chosen, ok := parseSelection(selection, 14)
 	if !ok {
 		fmt.Println(T.ExitMsg)
 		os.Exit(0)
@@ -449,6 +465,7 @@ func main() {
 	updateSystemChoice := chosen["11"]
 	setupSwapChoice := chosen["12"]
 	installOpenFluxChoice := chosen["13"]
+	uninstallOpenFluxChoice := chosen["14"]
 
 	sshPort := getCurrentSSHPort()
 	if changeSSHPortChoice {
@@ -495,6 +512,19 @@ func main() {
 	ofluxURL := ""
 	ofluxExtraFlags := ""
 	ofluxKey := ""
+
+	if installOpenFluxChoice {
+		if _, err := os.Stat("/etc/systemd/system/openflux.service"); err == nil {
+			fmt.Println("\nℹ️ " + T.OpenFluxAlreadyInstalled)
+			fmt.Print(T.OpenFluxReinstallChoice)
+			act, _ := reader.ReadString('\n')
+			act = strings.TrimSpace(act)
+			if act == "2" {
+				uninstallOpenFluxChoice = true
+				installOpenFluxChoice = false
+			}
+		}
+	}
 
 	if installOpenFluxChoice {
 		fmt.Println("\n" + strings.Repeat("-", 40))
@@ -631,6 +661,10 @@ func main() {
 	if installTelemtChoice {
 		fmt.Println("\n" + T.InstallingTelemt)
 		installTelemt()
+	}
+
+	if uninstallOpenFluxChoice {
+		uninstallOpenFlux()
 	}
 
 	if installOpenFluxChoice {
@@ -1073,12 +1107,51 @@ case "$1" in
         echo "Restarting openflux service..."
         systemctl restart openflux
         ;;
+    uninstall)
+        echo "Uninstalling OpenFlux..."
+        systemctl stop openflux 2>/dev/null || true
+        systemctl disable openflux 2>/dev/null || true
+        rm -f /etc/systemd/system/openflux.service
+        systemctl daemon-reload
+        iptables -D OUTPUT -p tcp --tcp-flags RST RST -j DROP 2>/dev/null || true
+        rm -f /etc/sysctl.d/99-openflux.conf
+        rm -f /usr/local/bin/openflux
+        rm -rf /etc/openflux
+        rm -f /usr/local/bin/openflux-mgr
+        echo "OpenFlux has been completely uninstalled."
+        ;;
     *)
         echo "OpenFlux Exit Node Manager"
-        echo "Usage: openflux-mgr {status|logs|restart|start|stop|config}"
+        echo "Usage: openflux-mgr {status|logs|restart|start|stop|config|uninstall}"
         ;;
 esac
 `
 	_ = os.WriteFile("/usr/local/bin/openflux-mgr", []byte(mgrContent), 0755)
 	run("chmod", "+x", "/usr/local/bin/openflux-mgr")
 }
+
+func uninstallOpenFlux() {
+	fmt.Println("\n" + T.UninstallingOpenFlux)
+
+	// Stop and disable systemd service
+	run("systemctl", "stop", "openflux")
+	run("systemctl", "disable", "openflux")
+	_ = os.Remove("/etc/systemd/system/openflux.service")
+	run("systemctl", "daemon-reload")
+
+	// Remove kernel RST drop iptables rule
+	run("bash", "-c", "iptables -D OUTPUT -p tcp --tcp-flags RST RST -j DROP 2>/dev/null || true")
+
+	// Remove sysctl config
+	_ = os.Remove("/etc/sysctl.d/99-openflux.conf")
+
+	// Remove binaries and scripts
+	_ = os.Remove("/usr/local/bin/openflux")
+	_ = os.Remove("/usr/local/bin/openflux-mgr")
+
+	// Remove configuration directory
+	_ = os.RemoveAll("/etc/openflux")
+
+	fmt.Println(T.OpenFluxUninstalled)
+}
+

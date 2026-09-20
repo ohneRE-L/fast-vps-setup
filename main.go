@@ -1086,6 +1086,9 @@ func installOpenFlux(transport, docURL, codec, secretKey, extraFlags string) {
 	confContent := fmt.Sprintf("# OpenFlux Exit Node Configuration\nROLE=exit\nMODE=l3\nCODEC=%s\nTRANSPORT=%s\n%sEXTRA_FLAGS=\"%s\"\n", codec, transport, urlParam, totalFlags)
 	_ = os.WriteFile("/etc/openflux/openflux.conf", []byte(confContent), 0644)
 
+	// Stop existing service if running to prevent file locks and command mismatch
+	run("systemctl", "stop", "openflux")
+
 	// Enable net.ipv4.ip_forward for L3 routing
 	_ = os.MkdirAll("/etc/sysctl.d", 0755)
 	_ = os.WriteFile("/etc/sysctl.d/99-openflux.conf", []byte("net.ipv4.ip_forward=1\n"), 0644)
@@ -1105,7 +1108,7 @@ Type=simple
 User=root
 EnvironmentFile=/etc/openflux/openflux.conf
 ExecStartPre=/bin/sh -c '/sbin/iptables -C OUTPUT -p tcp --tcp-flags RST RST -j DROP 2>/dev/null || /sbin/iptables -I OUTPUT 1 -p tcp --tcp-flags RST RST -j DROP'
-ExecStart=/bin/sh -c 'URL_ARG=""; [ -n "$URL" ] && URL_ARG="--url=$URL"; exec /usr/local/bin/openflux --role=${ROLE} --mode=${MODE} --codec=${CODEC} --transport=${TRANSPORT} $URL_ARG ${EXTRA_FLAGS}'
+ExecStart=/bin/sh -c 'CODEC_ARG="${CODEC:-legacy}"; URL_ARG=""; [ -n "$URL" ] && URL_ARG="--url=$URL"; exec /usr/local/bin/openflux --role=${ROLE:-exit} --mode=${MODE:-l3} --codec=$CODEC_ARG --transport=${TRANSPORT:-yandex} $URL_ARG ${EXTRA_FLAGS}'
 ExecStopPost=/bin/sh -c '/sbin/iptables -D OUTPUT -p tcp --tcp-flags RST RST -j DROP 2>/dev/null || true'
 Restart=always
 RestartSec=3
@@ -1116,31 +1119,37 @@ WantedBy=multi-user.target
 `
 	_ = os.WriteFile("/etc/systemd/system/openflux.service", []byte(serviceContent), 0644)
 	run("systemctl", "daemon-reload")
-	run("systemctl", "enable", "--now", "openflux")
+	run("systemctl", "enable", "openflux")
+	run("systemctl", "restart", "openflux")
 
 	// Create openflux-mgr helper script
 	mgrContent := `#!/bin/bash
 case "$1" in
     status)
-        systemctl status openflux
+        systemctl status openflux --no-pager
         ;;
     logs)
         journalctl -u openflux -f -n 100
         ;;
     restart)
+        systemctl daemon-reload
         systemctl restart openflux
         systemctl status openflux --no-pager
         ;;
     start)
+        systemctl daemon-reload
         systemctl start openflux
+        systemctl status openflux --no-pager
         ;;
     stop)
         systemctl stop openflux
         ;;
     config)
         ${EDITOR:-nano} /etc/openflux/openflux.conf
-        echo "Restarting openflux service..."
+        echo "Reloading systemd and restarting openflux service..."
+        systemctl daemon-reload
         systemctl restart openflux
+        systemctl status openflux --no-pager
         ;;
     uninstall)
         echo "Uninstalling OpenFlux..."

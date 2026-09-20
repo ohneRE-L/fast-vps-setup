@@ -87,6 +87,9 @@ type Messages struct {
 	OpenFluxOneMeToken      string
 	OpenFluxOneMeUID        string
 	OpenFluxEncryptPrompt   string
+	OpenFluxCodecPrompt     string
+	OpenFluxURLCleanNotice  string
+	OpenFluxInvalidDocID    string
 	InstallingOpenFlux      string
 	UninstallingOpenFlux    string
 	OpenFluxUninstalled     string
@@ -170,6 +173,9 @@ var ruMsgs = Messages{
 	OpenFluxOneMeToken:      "👉 Введите MAX Web token (--maxToken): ",
 	OpenFluxOneMeUID:        "👉 Введите MAX Call User ID (--maxUid): ",
 	OpenFluxEncryptPrompt:   "Включить сквозное шифрование AES-256-GCM (будет сгенерирован секретный ключ)?",
+	OpenFluxCodecPrompt:     "👉 Выберите профиль кодека для OpenFlux:\n  1. Универсальный: Android + iOS + PC (--codec=legacy) [Рекомендуется]\n  2. High-Performance: Только PC (потоковый batched+zstd)\nВаш выбор [1/2, Enter = 1]: ",
+	OpenFluxURLCleanNotice:  "✨ Ссылка очищена и приведена к формату OpenFlux:\n   ",
+	OpenFluxInvalidDocID:    "Не удалось извлечь ID документа из ссылки. Проверьте формат ссылки.",
 	InstallingOpenFlux:      "[5.7/6] 📥 Установка и настройка OpenFlux (Exit Node)...",
 	UninstallingOpenFlux:    "[5.8/6] 🗑 Удаление OpenFlux...",
 	OpenFluxUninstalled:     "✅ OpenFlux успешно и полностью удален из системы.",
@@ -253,6 +259,9 @@ var enMsgs = Messages{
 	OpenFluxOneMeToken:      "👉 Enter MAX Web token (--maxToken): ",
 	OpenFluxOneMeUID:        "👉 Enter MAX Call User ID (--maxUid): ",
 	OpenFluxEncryptPrompt:   "Enable end-to-end AES-256-GCM encryption (a secret key will be generated)?",
+	OpenFluxCodecPrompt:     "👉 Choose codec profile for OpenFlux:\n  1. Universal: Android + iOS + PC (--codec=legacy) [Recommended]\n  2. High-Performance: PC only (batched+zstd)\nYour choice [1/2, Enter = 1]: ",
+	OpenFluxURLCleanNotice:  "✨ URL cleaned and formatted for OpenFlux:\n   ",
+	OpenFluxInvalidDocID:    "Could not extract document ID from the URL. Please verify the format.",
 	InstallingOpenFlux:      "[5.7/6] 📥 Installing and configuring OpenFlux (Exit Node)...",
 	UninstallingOpenFlux:    "[5.8/6] 🗑 Uninstalling OpenFlux...",
 	OpenFluxUninstalled:      "✅ OpenFlux has been completely uninstalled from the system.",
@@ -510,6 +519,7 @@ func main() {
 
 	ofluxTransport := "yandex"
 	ofluxURL := ""
+	ofluxCodec := "legacy"
 	ofluxExtraFlags := ""
 	ofluxKey := ""
 
@@ -578,9 +588,27 @@ func main() {
 					fmt.Println("⚠️ " + T.OpenFluxURLEmpty)
 					continue
 				}
-				ofluxURL = input
+				cleaned, err := cleanOpenFluxURL(ofluxTransport, input)
+				if err != nil {
+					fmt.Printf("⚠️ %s (%v)\n", T.OpenFluxInvalidDocID, err)
+					continue
+				}
+				ofluxURL = cleaned
+				if ofluxURL != input {
+					fmt.Println(T.OpenFluxURLCleanNotice + ofluxURL)
+				}
 				break
 			}
+		}
+
+		// Выбор профиля кодека (legacy vs batched)
+		fmt.Print(T.OpenFluxCodecPrompt)
+		codecChoice, _ := reader.ReadString('\n')
+		codecChoice = strings.TrimSpace(codecChoice)
+		if codecChoice == "2" {
+			ofluxCodec = "batched"
+		} else {
+			ofluxCodec = "legacy"
 		}
 
 		if askYesNo(T.OpenFluxEncryptPrompt, reader) {
@@ -669,7 +697,7 @@ func main() {
 
 	if installOpenFluxChoice {
 		fmt.Println("\n" + T.InstallingOpenFlux)
-		installOpenFlux(ofluxTransport, ofluxURL, ofluxKey, ofluxExtraFlags)
+		installOpenFlux(ofluxTransport, ofluxURL, ofluxCodec, ofluxKey, ofluxExtraFlags)
 	}
 
 	if install3xUI {
@@ -705,6 +733,10 @@ func main() {
 		}
 		fmt.Println(strings.Repeat("-", 50))
 		fmt.Println(T.OpenFluxCmdExample + ":")
+		codecFlag := ""
+		if ofluxCodec == "legacy" {
+			codecFlag = " -c legacy"
+		}
 		keyFlag := ""
 		if ofluxKey != "" {
 			keyFlag = " --encryption-key-file=secret.key"
@@ -713,8 +745,13 @@ func main() {
 		if ofluxURL != "" {
 			urlArg = fmt.Sprintf(" -u \"%s\"", ofluxURL)
 		}
-		fmt.Printf(" macOS (TUN):   sudo openflux -r client -i tun -t %s%s%s\n", ofluxTransport, urlArg, keyFlag)
-		fmt.Printf(" Win / Linux:   openflux -r client -i socks5 -t %s%s -s :1080%s\n", ofluxTransport, urlArg, keyFlag)
+		fmt.Printf(" macOS (TUN):   sudo openflux -r client -i tun -t %s%s%s%s\n", ofluxTransport, urlArg, codecFlag, keyFlag)
+		fmt.Printf(" Win / Linux:   openflux -r client -i socks5 -t %s%s -s :1080%s%s\n", ofluxTransport, urlArg, codecFlag, keyFlag)
+		if ofluxCodec == "legacy" {
+			fmt.Println(" Android / iOS: Совместимо (профиль legacy включен)")
+		} else {
+			fmt.Println(" Android / iOS: Внимание: мобильные клиенты требуют профиль legacy (выбран batched)")
+		}
 		fmt.Println(T.OpenFluxMgrCmd)
 		fmt.Println(strings.Repeat("-", 50))
 	}
@@ -1002,7 +1039,7 @@ func disableSSHSocket() {
 	}
 }
 
-func installOpenFlux(transport, docURL, secretKey, extraFlags string) {
+func installOpenFlux(transport, docURL, codec, secretKey, extraFlags string) {
 	arch := runtime.GOARCH
 	var binName string
 	switch arch {
@@ -1046,7 +1083,7 @@ func installOpenFlux(transport, docURL, secretKey, extraFlags string) {
 		urlParam = "URL=\"\"\n"
 	}
 
-	confContent := fmt.Sprintf("# OpenFlux Exit Node Configuration\nROLE=exit\nMODE=l3\n%sTRANSPORT=%s\nEXTRA_FLAGS=\"%s\"\n", urlParam, transport, totalFlags)
+	confContent := fmt.Sprintf("# OpenFlux Exit Node Configuration\nROLE=exit\nMODE=l3\nCODEC=%s\nTRANSPORT=%s\n%sEXTRA_FLAGS=\"%s\"\n", codec, transport, urlParam, totalFlags)
 	_ = os.WriteFile("/etc/openflux/openflux.conf", []byte(confContent), 0644)
 
 	// Enable net.ipv4.ip_forward for L3 routing
@@ -1057,12 +1094,9 @@ func installOpenFlux(transport, docURL, secretKey, extraFlags string) {
 	// Ensure iptables is installed
 	run("apt-get", "install", "-y", "iptables")
 
-	// Apply kernel RST drop for L3 exit mode
-	run("bash", "-c", "iptables -C OUTPUT -p tcp --tcp-flags RST RST -j DROP 2>/dev/null || iptables -A OUTPUT -p tcp --tcp-flags RST RST -j DROP")
-
-	// Create systemd service
+	// Create systemd service with isolated iptables RST-drop lifecycle
 	serviceContent := `[Unit]
-Description=OpenFlux Exit Node Tunnel
+Description=OpenFlux Exit Node
 After=network.target network-online.target
 Wants=network-online.target
 
@@ -1070,10 +1104,11 @@ Wants=network-online.target
 Type=simple
 User=root
 EnvironmentFile=/etc/openflux/openflux.conf
-ExecStartPre=/bin/sh -c 'iptables -C OUTPUT -p tcp --tcp-flags RST RST -j DROP 2>/dev/null || iptables -A OUTPUT -p tcp --tcp-flags RST RST -j DROP'
-ExecStart=/bin/sh -c 'URL_ARG=""; [ -n "$URL" ] && URL_ARG="--url=$URL"; exec /usr/local/bin/openflux --role=${ROLE} --mode=${MODE} --transport=${TRANSPORT} $URL_ARG ${EXTRA_FLAGS}'
+ExecStartPre=/bin/sh -c '/sbin/iptables -C OUTPUT -p tcp --tcp-flags RST RST -j DROP 2>/dev/null || /sbin/iptables -I OUTPUT 1 -p tcp --tcp-flags RST RST -j DROP'
+ExecStart=/bin/sh -c 'URL_ARG=""; [ -n "$URL" ] && URL_ARG="--url=$URL"; exec /usr/local/bin/openflux --role=${ROLE} --mode=${MODE} --codec=${CODEC} --transport=${TRANSPORT} $URL_ARG ${EXTRA_FLAGS}'
+ExecStopPost=/bin/sh -c '/sbin/iptables -D OUTPUT -p tcp --tcp-flags RST RST -j DROP 2>/dev/null || true'
 Restart=always
-RestartSec=5
+RestartSec=3
 LimitNOFILE=65535
 
 [Install]
@@ -1113,7 +1148,7 @@ case "$1" in
         systemctl disable openflux 2>/dev/null || true
         rm -f /etc/systemd/system/openflux.service
         systemctl daemon-reload
-        iptables -D OUTPUT -p tcp --tcp-flags RST RST -j DROP 2>/dev/null || true
+        /sbin/iptables -D OUTPUT -p tcp --tcp-flags RST RST -j DROP 2>/dev/null || true
         rm -f /etc/sysctl.d/99-openflux.conf
         rm -f /usr/local/bin/openflux
         rm -rf /etc/openflux
@@ -1130,6 +1165,43 @@ esac
 	run("chmod", "+x", "/usr/local/bin/openflux-mgr")
 }
 
+func cleanOpenFluxURL(transport, rawURL string) (string, error) {
+	rawURL = strings.TrimSpace(rawURL)
+	if rawURL == "" {
+		return "", fmt.Errorf("URL cannot be empty")
+	}
+
+	switch transport {
+	case "yandex", "vyandex":
+		// Case 1: Raw document ID pasted directly
+		if !strings.Contains(rawURL, "/") && len(rawURL) >= 8 {
+			return fmt.Sprintf("https://docs.yandex.ru/edit/d/%s?from_public=1", rawURL), nil
+		}
+
+		// Case 2: URL containing /d/<DOC_ID>
+		re := regexp.MustCompile(`/d/([a-zA-Z0-9_\-\.]+)`)
+		match := re.FindStringSubmatch(rawURL)
+		if len(match) > 1 {
+			docID := match[1]
+			return fmt.Sprintf("https://docs.yandex.ru/edit/d/%s?from_public=1", docID), nil
+		}
+
+		// Case 3: Other Yandex Docs URLs - strip tracking parameters and append from_public=1
+		if strings.Contains(rawURL, "docs.yandex.") || strings.Contains(rawURL, "yandex.") {
+			base := strings.Split(rawURL, "?")[0]
+			return base + "?from_public=1", nil
+		}
+		return rawURL, nil
+
+	case "mailru":
+		base := strings.Split(rawURL, "?")[0]
+		return strings.TrimRight(base, "/"), nil
+
+	default:
+		return rawURL, nil
+	}
+}
+
 func uninstallOpenFlux() {
 	fmt.Println("\n" + T.UninstallingOpenFlux)
 
@@ -1140,7 +1212,7 @@ func uninstallOpenFlux() {
 	run("systemctl", "daemon-reload")
 
 	// Remove kernel RST drop iptables rule
-	run("bash", "-c", "iptables -D OUTPUT -p tcp --tcp-flags RST RST -j DROP 2>/dev/null || true")
+	run("bash", "-c", "/sbin/iptables -D OUTPUT -p tcp --tcp-flags RST RST -j DROP 2>/dev/null || true")
 
 	// Remove sysctl config
 	_ = os.Remove("/etc/sysctl.d/99-openflux.conf")

@@ -74,7 +74,7 @@ type Messages struct {
 	MenuOption11            string
 	MenuOption12            string
 	MenuOption13            string
-	MenuOption14            string
+	OpenFluxActionPrompt    string
 	MenuOption0             string
 	ExitMsg                 string
 	DisablingSocket         string
@@ -159,8 +159,8 @@ var ruMsgs = Messages{
 	MenuOption10:     "10. Отключить SSH Socket (включить классический SSH Service)",
 	MenuOption11:     "11. Обновить пакеты и ядро",
 	MenuOption12:            "12. Настройка Swap (2 GB)",
-	MenuOption13:            "13. Установка и настройка OpenFlux (Exit Node туннель)",
-	MenuOption14:            "14. Удаление OpenFlux",
+	MenuOption13:            "13. Установка, настройка или удаление OpenFlux (Exit Node)",
+	OpenFluxActionPrompt:    "👉 Выберите действие для OpenFlux:\n  1. Установка и настройка (по умолчанию)\n  2. Удаление OpenFlux\nВаш выбор [1/2, Enter = 1]: ",
 	MenuOption0:             "0. Выход",
 	ExitMsg:                 "Выход из скрипта...",
 	DisablingSocket:         "[3.1/6] ⚙️ Отключение SSH Socket и запуск классического SSH Service...",
@@ -245,8 +245,8 @@ var enMsgs = Messages{
 	MenuOption10:     "10. Disable SSH Socket (enable classic SSH Service)",
 	MenuOption11:     "11. Update packages and kernel",
 	MenuOption12:            "12. Setup Swap (2 GB)",
-	MenuOption13:            "13. Install & configure OpenFlux (Exit Node tunnel)",
-	MenuOption14:            "14. Uninstall OpenFlux",
+	MenuOption13:            "13. Install, configure or uninstall OpenFlux (Exit Node)",
+	OpenFluxActionPrompt:    "👉 Choose action for OpenFlux:\n  1. Install & configure (default)\n  2. Uninstall OpenFlux\nYour choice [1/2, Enter = 1]: ",
 	MenuOption0:             "0. Exit",
 	ExitMsg:                 "Exiting script...",
 	DisablingSocket:         "[3.1/6] ⚙️ Disabling SSH Socket and starting classic SSH Service...",
@@ -450,12 +450,11 @@ func main() {
 	fmt.Println(T.MenuOption11)
 	fmt.Println(T.MenuOption12)
 	fmt.Println(T.MenuOption13)
-	fmt.Println(T.MenuOption14)
 	fmt.Println(T.MenuOption0)
 	fmt.Print("\n" + T.SelectComponents)
 
 	selection, _ := reader.ReadString('\n')
-	chosen, ok := parseSelection(selection, 14)
+	chosen, ok := parseSelection(selection, 13)
 	if !ok {
 		fmt.Println(T.ExitMsg)
 		os.Exit(0)
@@ -474,7 +473,7 @@ func main() {
 	updateSystemChoice := chosen["11"]
 	setupSwapChoice := chosen["12"]
 	installOpenFluxChoice := chosen["13"]
-	uninstallOpenFluxChoice := chosen["14"]
+	uninstallOpenFluxChoice := false
 
 	sshPort := getCurrentSSHPort()
 	if changeSSHPortChoice {
@@ -524,9 +523,29 @@ func main() {
 	ofluxKey := ""
 
 	if installOpenFluxChoice {
+		isOpenFluxInstalled := false
 		if _, err := os.Stat("/etc/systemd/system/openflux.service"); err == nil {
+			isOpenFluxInstalled = true
+		} else if _, err := os.Stat("/usr/local/bin/openflux"); err == nil {
+			isOpenFluxInstalled = true
+		} else if _, err := os.Stat("/etc/openflux"); err == nil {
+			isOpenFluxInstalled = true
+		} else if _, err := os.Stat("/usr/local/bin/openflux-mgr"); err == nil {
+			isOpenFluxInstalled = true
+		}
+
+		if isOpenFluxInstalled {
 			fmt.Println("\nℹ️ " + T.OpenFluxAlreadyInstalled)
 			fmt.Print(T.OpenFluxReinstallChoice)
+			act, _ := reader.ReadString('\n')
+			act = strings.TrimSpace(act)
+			if act == "2" {
+				uninstallOpenFluxChoice = true
+				installOpenFluxChoice = false
+			}
+		} else if strings.ToLower(strings.TrimSpace(selection)) != "all" {
+			fmt.Println("\n" + strings.Repeat("-", 40))
+			fmt.Print(T.OpenFluxActionPrompt)
 			act, _ := reader.ReadString('\n')
 			act = strings.TrimSpace(act)
 			if act == "2" {

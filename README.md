@@ -26,7 +26,7 @@ An automated **Go** script for fast and secure configuration of a new VPS server
 13. **Swap Setup (optional):** Creates a 2 GB swapfile with optimal swappiness tuning (`vm.swappiness=10`) — essential for budget VPS instances with 512MB–1GB RAM.
 14. **Essential Utilities:** Installs core network and diagnostic tools (`curl`, `wget`, `htop`, `iftop`, `iotop`, `net-tools`, `dnsutils`, `jq`, `socat`, `tar`, `unzip`, `ca-certificates`).
 15. **Safety & Protection:** Input validation for ports and SSH keys to prevent server lockout, plus Debian / Ubuntu OS verification.
-16. **OpenFlux Exit Node & Removal:** Installs [OpenFlux](https://github.com/p1neappleXpress/OpenFlux), sets up high-performance L3 exit node over covert transports (Yandex.Docs, Mail.ru Docs, Cups.online, MAX/OneMe, Volga), enables Linux kernel packet forwarding, applies kernel RST-drop iptables rules, configures background `openflux.service` with auto-recovery, and provides convenient `openflux-mgr` CLI tool. Also includes full uninstallation option (Option 14 or via `openflux-mgr uninstall`).
+16. **OpenFlux Exit Node & Removal:** Installs [OpenFlux](https://github.com/p1neappleXpress/OpenFlux), sets up high-performance L3 exit node over covert transports (Yandex.Docs, Mail.ru Docs, Cups.online, MAX/OneMe, Volga), enables Linux kernel packet forwarding, applies kernel RST-drop iptables rules, configures background `openflux.service` with auto-recovery, and provides convenient `openflux-mgr` CLI tool. Also includes full uninstallation option (Option 13 or via `openflux-mgr uninstall`).
 ---
 
 ## 🚀 Installation
@@ -88,7 +88,7 @@ Upon completion, the script will output configuration frames for your chosen ser
 13. **Настройка Swap (опционально):** Создание файла подкачки на 2 ГБ с оптимизацией `vm.swappiness=10` — критично для стабильности слабых VPS с 512MB–1GB RAM.
 14. **Базовый набор утилит:** Установка ключевых системных и сетевых инструментов (`curl`, `wget`, `htop`, `iftop`, `iotop`, `net-tools`, `dnsutils`, `jq`, `socat`, `tar`, `unzip`, `ca-certificates`).
 15. **Защита от lockout:** Валидация вводимых портов и SSH-ключей перед применением настроек, а также проверка дистрибутива (Debian / Ubuntu).
-16. **OpenFlux Exit Node и удаление:** Установка [OpenFlux](https://github.com/p1neappleXpress/OpenFlux), быстрая настройка L3 выходной ноды через covert-транспорты (Яндекс.Документы, Mail.ru Docs, Cups.online, MAX/OneMe, Volga), автоматическое включение IP-форвардинга ядра, блокировка RST-пакетов через iptables, служба автозапуска `openflux.service` и утилита управления `openflux-mgr`. Также предусмотрено полное и чистое удаление (пункт 14 в меню или команда `openflux-mgr uninstall`).
+16. **OpenFlux Exit Node и удаление:** Установка [OpenFlux](https://github.com/p1neappleXpress/OpenFlux), быстрая настройка L3 выходной ноды через covert-транспорты (Яндекс.Документы, Mail.ru Docs, Cups.online, MAX/OneMe, Volga), автоматическое включение IP-форвардинга ядра, блокировка RST-пакетов через iptables, служба автозапуска `openflux.service` и утилита управления `openflux-mgr`. Также предусмотрено полное и чистое удаление (пункт 13 в меню или команда `openflux-mgr uninstall`).
 ---
 
 ## 🚀 Установка

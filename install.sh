@@ -34,7 +34,7 @@ case "$ARCH" in
         ;;
 esac
 
-BRANCH="${FAST_VPS_BRANCH:-test}"
+BRANCH="${FAST_VPS_BRANCH:-main}"
 RAW_URL="https://raw.githubusercontent.com/ohneRE-L/fast-vps-setup/${BRANCH}/${BIN_NAME}"
 FALLBACK_RAW_URL="https://raw.githubusercontent.com/ohneRE-L/fast-vps-setup/${BRANCH}/setup_server"
 RELEASE_URL="https://github.com/ohneRE-L/fast-vps-setup/releases/latest/download/${BIN_NAME}"

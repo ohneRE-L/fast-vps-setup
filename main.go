@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 	"syscall"
@@ -18,64 +19,81 @@ import (
 )
 
 type Messages struct {
-	LangSelect       string
-	RootRequired     string
-	DebianOnly       string
-	SSHPortPrompt    string
-	SSHPortEmpty     string
-	InvalidSSHPort   string
-	SSHPortConflict  string
-	ChangeSSH        string
-	SetupUFW         string
-	Install3xUI      string
-	InstallTelemt    string
-	InstallWarp      string
-	EnableBBR        string
-	InstallF2B       string
-	SystemUpdate     string
-	InstallingTools  string
-	Ulimits          string
-	InstallingSwap   string
-	SSHChange        string
-	UFWSetup         string
-	Installing3x     string
-	InstallingTelemt string
-	InstallingWarp   string
-	WarpNotInstalled string
-	InstallingBBR    string
-	InstallingF2B    string
-	Finalizing       string
-	Success          string
-	URL              string
-	Login            string
-	Password         string
-	SSHPort          string
-	XUICommand       string
-	SetupDNS         string
-	InstallingDNS    string
-	SetupSSHKey      string
-	EnterSSHKey      string
-	InstallingSSHKey string
-	SSHKeyEmpty      string
-	InvalidSSHKey    string
-	SelectComponents string
-	MenuHeader       string
-	MenuOption1      string
-	MenuOption2      string
-	MenuOption3      string
-	MenuOption4      string
-	MenuOption5      string
-	MenuOption6      string
-	MenuOption7      string
-	MenuOption8      string
-	MenuOption9      string
-	MenuOption10     string
-	MenuOption11     string
-	MenuOption12     string
-	MenuOption0      string
-	ExitMsg          string
-	DisablingSocket  string
-	RebootNotice     string
+	LangSelect              string
+	RootRequired            string
+	DebianOnly              string
+	SSHPortPrompt           string
+	SSHPortEmpty            string
+	InvalidSSHPort          string
+	SSHPortConflict         string
+	ChangeSSH               string
+	SetupUFW                string
+	Install3xUI             string
+	InstallTelemt           string
+	InstallWarp             string
+	EnableBBR               string
+	InstallF2B              string
+	SystemUpdate            string
+	InstallingTools         string
+	Ulimits                 string
+	InstallingSwap          string
+	SSHChange               string
+	UFWSetup                string
+	Installing3x            string
+	InstallingTelemt        string
+	InstallingWarp          string
+	WarpNotInstalled        string
+	InstallingBBR           string
+	InstallingF2B           string
+	Finalizing              string
+	Success                 string
+	URL                     string
+	Login                   string
+	Password                string
+	SSHPort                 string
+	XUICommand              string
+	SetupDNS                string
+	InstallingDNS           string
+	SetupSSHKey             string
+	EnterSSHKey             string
+	InstallingSSHKey        string
+	SSHKeyEmpty             string
+	InvalidSSHKey           string
+	SelectComponents        string
+	MenuHeader              string
+	MenuOption1             string
+	MenuOption2             string
+	MenuOption3             string
+	MenuOption4             string
+	MenuOption5             string
+	MenuOption6             string
+	MenuOption7             string
+	MenuOption8             string
+	MenuOption9             string
+	MenuOption10            string
+	MenuOption11            string
+	MenuOption12            string
+	MenuOption13            string
+	MenuOption0             string
+	ExitMsg                 string
+	DisablingSocket         string
+	RebootNotice            string
+	InstallOpenFluxPrompt   string
+	OpenFluxTransportPrompt string
+	OpenFluxURLPrompt       string
+	OpenFluxURLEmpty        string
+	OpenFluxCupsPrompt      string
+	OpenFluxOneMeToken      string
+	OpenFluxOneMeUID        string
+	OpenFluxEncryptPrompt   string
+	InstallingOpenFlux      string
+	OpenFluxHeader          string
+	OpenFluxTransport       string
+	OpenFluxURL             string
+	OpenFluxSecretKey       string
+	OpenFluxKeyNotice       string
+	OpenFluxCmdExample      string
+	OpenFluxMgrCmd          string
 }
 
 var ruMsgs = Messages{
@@ -132,11 +150,28 @@ var ruMsgs = Messages{
 	MenuOption9:      "9. Настройка DNS (Cloudflare + Google)",
 	MenuOption10:     "10. Отключить SSH Socket (включить классический SSH Service)",
 	MenuOption11:     "11. Обновить пакеты и ядро",
-	MenuOption12:     "12. Настройка Swap (2 GB)",
-	MenuOption0:      "0. Выход",
-	ExitMsg:          "Выход из скрипта...",
-	DisablingSocket:  "[3.1/6] ⚙️ Отключение SSH Socket и запуск классического SSH Service...",
-	RebootNotice:     "⚠️ Рекомендуется перезагрузить сервер (команда 'reboot') для применения изменений ядра и BBR.",
+	MenuOption12:            "12. Настройка Swap (2 GB)",
+	MenuOption13:            "13. Установка и настройка OpenFlux (Exit Node туннель)",
+	MenuOption0:             "0. Выход",
+	ExitMsg:                 "Выход из скрипта...",
+	DisablingSocket:         "[3.1/6] ⚙️ Отключение SSH Socket и запуск классического SSH Service...",
+	RebootNotice:            "⚠️ Рекомендуется перезагрузить сервер (команда 'reboot') для применения изменений ядра и BBR.",
+	InstallOpenFluxPrompt:   "Установить OpenFlux?",
+	OpenFluxTransportPrompt: "👉 Выберите транспорт для OpenFlux:\n  1. Yandex.Docs (WebSocket) [по умолчанию]\n  2. Mail.ru Docs (WebSocket)\n  3. Cups.online (Centrifugo комнаты)\n  4. MAX / OneMe (WebRTC)\n  5. Yandex Volga (HTTP relay + WS)\nВаш выбор [1-5, Enter = 1]: ",
+	OpenFluxURLPrompt:       "👉 Введите URL документа / публичную ссылку (например, ссылка на документ в Яндекс.Документах или Mail.ru):\n",
+	OpenFluxURLEmpty:        "URL не может быть пустым",
+	OpenFluxCupsPrompt:      "👉 Введите ID комнаты Cups.online (или нажмите Enter для автоматической генерации комнат exit-нодой): ",
+	OpenFluxOneMeToken:      "👉 Введите MAX Web token (--maxToken): ",
+	OpenFluxOneMeUID:        "👉 Введите MAX Call User ID (--maxUid): ",
+	OpenFluxEncryptPrompt:   "Включить сквозное шифрование AES-256-GCM (будет сгенерирован секретный ключ)?",
+	InstallingOpenFlux:      "[5.7/6] 📥 Установка и настройка OpenFlux (Exit Node)...",
+	OpenFluxHeader:          "🛡 OPENFLUX НАСТРОЕН И ЗАПУЩЕН",
+	OpenFluxTransport:       "📡 Транспорт",
+	OpenFluxURL:             "🔗 Документ/URL",
+	OpenFluxSecretKey:       "🔑 Секретный ключ шифрования",
+	OpenFluxKeyNotice:       "👉 Скопируйте этот ключ в файл secret.key на клиенте и добавьте параметр --encryption-key-file=secret.key",
+	OpenFluxCmdExample:      "💻 Примеры подключения клиента",
+	OpenFluxMgrCmd:          "Управление сервисом: 'openflux-mgr' (или 'systemctl status openflux')",
 }
 
 var enMsgs = Messages{
@@ -193,11 +228,28 @@ var enMsgs = Messages{
 	MenuOption9:      "9. Configure DNS (Cloudflare + Google)",
 	MenuOption10:     "10. Disable SSH Socket (enable classic SSH Service)",
 	MenuOption11:     "11. Update packages and kernel",
-	MenuOption12:     "12. Setup Swap (2 GB)",
-	MenuOption0:      "0. Exit",
-	ExitMsg:          "Exiting script...",
-	DisablingSocket:  "[3.1/6] ⚙️ Disabling SSH Socket and starting classic SSH Service...",
-	RebootNotice:     "⚠️ It is recommended to reboot the server ('reboot' command) to apply kernel and BBR changes.",
+	MenuOption12:            "12. Setup Swap (2 GB)",
+	MenuOption13:            "13. Install & configure OpenFlux (Exit Node tunnel)",
+	MenuOption0:             "0. Exit",
+	ExitMsg:                 "Exiting script...",
+	DisablingSocket:         "[3.1/6] ⚙️ Disabling SSH Socket and starting classic SSH Service...",
+	RebootNotice:            "⚠️ It is recommended to reboot the server ('reboot' command) to apply kernel and BBR changes.",
+	InstallOpenFluxPrompt:   "Install OpenFlux?",
+	OpenFluxTransportPrompt: "👉 Choose transport for OpenFlux:\n  1. Yandex.Docs (WebSocket) [default]\n  2. Mail.ru Docs (WebSocket)\n  3. Cups.online (Centrifugo rooms)\n  4. MAX / OneMe (WebRTC)\n  5. Yandex Volga (HTTP relay + WS)\nYour choice [1-5, Enter = 1]: ",
+	OpenFluxURLPrompt:       "👉 Enter document URL / public link (e.g., Yandex Docs or Mail.ru document URL):\n",
+	OpenFluxURLEmpty:        "URL cannot be empty",
+	OpenFluxCupsPrompt:      "👉 Enter Cups.online room ID (or press Enter to auto-generate rooms on exit node): ",
+	OpenFluxOneMeToken:      "👉 Enter MAX Web token (--maxToken): ",
+	OpenFluxOneMeUID:        "👉 Enter MAX Call User ID (--maxUid): ",
+	OpenFluxEncryptPrompt:   "Enable end-to-end AES-256-GCM encryption (a secret key will be generated)?",
+	InstallingOpenFlux:      "[5.7/6] 📥 Installing and configuring OpenFlux (Exit Node)...",
+	OpenFluxHeader:          "🛡 OPENFLUX CONFIGURED & RUNNING",
+	OpenFluxTransport:       "📡 Transport",
+	OpenFluxURL:             "🔗 Document/URL",
+	OpenFluxSecretKey:       "🔑 Encryption Secret Key",
+	OpenFluxKeyNotice:       "👉 Copy this key to secret.key file on your client and use --encryption-key-file=secret.key",
+	OpenFluxCmdExample:      "💻 Client connection examples",
+	OpenFluxMgrCmd:          "Service management: 'openflux-mgr' (or 'systemctl status openflux')",
 }
 
 var T Messages
@@ -373,11 +425,12 @@ func main() {
 	fmt.Println(T.MenuOption10)
 	fmt.Println(T.MenuOption11)
 	fmt.Println(T.MenuOption12)
+	fmt.Println(T.MenuOption13)
 	fmt.Println(T.MenuOption0)
 	fmt.Print("\n" + T.SelectComponents)
 
 	selection, _ := reader.ReadString('\n')
-	chosen, ok := parseSelection(selection, 12)
+	chosen, ok := parseSelection(selection, 13)
 	if !ok {
 		fmt.Println(T.ExitMsg)
 		os.Exit(0)
@@ -395,6 +448,7 @@ func main() {
 	disableSSHSocketChoice := chosen["10"]
 	updateSystemChoice := chosen["11"]
 	setupSwapChoice := chosen["12"]
+	installOpenFluxChoice := chosen["13"]
 
 	sshPort := getCurrentSSHPort()
 	if changeSSHPortChoice {
@@ -437,6 +491,73 @@ func main() {
 		}
 	}
 
+	ofluxTransport := "yandex"
+	ofluxURL := ""
+	ofluxExtraFlags := ""
+	ofluxKey := ""
+
+	if installOpenFluxChoice {
+		fmt.Println("\n" + strings.Repeat("-", 40))
+		for {
+			fmt.Print(T.OpenFluxTransportPrompt)
+			input, _ := reader.ReadString('\n')
+			input = strings.TrimSpace(input)
+			if input == "" || input == "1" {
+				ofluxTransport = "yandex"
+				break
+			} else if input == "2" {
+				ofluxTransport = "mailru"
+				break
+			} else if input == "3" {
+				ofluxTransport = "cupsonline"
+				break
+			} else if input == "4" {
+				ofluxTransport = "oneme"
+				break
+			} else if input == "5" {
+				ofluxTransport = "vyandex"
+				break
+			} else {
+				fmt.Println("⚠️ Invalid selection / Неверный выбор")
+			}
+		}
+
+		if ofluxTransport == "cupsonline" {
+			fmt.Print(T.OpenFluxCupsPrompt)
+			input, _ := reader.ReadString('\n')
+			ofluxURL = strings.TrimSpace(input)
+		} else if ofluxTransport == "oneme" {
+			fmt.Print(T.OpenFluxOneMeToken)
+			token, _ := reader.ReadString('\n')
+			token = strings.TrimSpace(token)
+			fmt.Print(T.OpenFluxOneMeUID)
+			uid, _ := reader.ReadString('\n')
+			uid = strings.TrimSpace(uid)
+			if token != "" {
+				ofluxExtraFlags += fmt.Sprintf(" --maxToken=%s", token)
+			}
+			if uid != "" {
+				ofluxExtraFlags += fmt.Sprintf(" --maxUid=%s", uid)
+			}
+		} else {
+			for {
+				fmt.Print(T.OpenFluxURLPrompt)
+				input, _ := reader.ReadString('\n')
+				input = strings.TrimSpace(input)
+				if input == "" {
+					fmt.Println("⚠️ " + T.OpenFluxURLEmpty)
+					continue
+				}
+				ofluxURL = input
+				break
+			}
+		}
+
+		if askYesNo(T.OpenFluxEncryptPrompt, reader) {
+			ofluxKey = generateRandomString(32)
+		}
+	}
+
 	secretPath := generateRandomString(12)
 	adminUser := generateRandomString(8)
 	adminPass := generateRandomString(14)
@@ -448,7 +569,7 @@ func main() {
 		fmt.Println("\n" + T.InstallingTools)
 		installBasicUtilities()
 	} else {
-		if configureUFWChoice || installFail2BanChoice || setupDNSChoice || install3xUI || installTelemtChoice || setupSwapChoice {
+		if configureUFWChoice || installFail2BanChoice || setupDNSChoice || install3xUI || installTelemtChoice || setupSwapChoice || installOpenFluxChoice {
 			_ = os.Setenv("DEBIAN_FRONTEND", "noninteractive")
 			run("apt", "update")
 			fmt.Println("\n" + T.InstallingTools)
@@ -512,6 +633,11 @@ func main() {
 		installTelemt()
 	}
 
+	if installOpenFluxChoice {
+		fmt.Println("\n" + T.InstallingOpenFlux)
+		installOpenFlux(ofluxTransport, ofluxURL, ofluxKey, ofluxExtraFlags)
+	}
+
 	if install3xUI {
 		fmt.Println("\n" + T.Finalizing)
 		finalConfig(adminUser, adminPass, secretPath)
@@ -530,6 +656,32 @@ func main() {
 		fmt.Printf("%s: http://%s:3/%s/\n", T.URL, ip, secretPath)
 		fmt.Printf("%s:  %s\n", T.Login, adminUser)
 		fmt.Printf("%s: %s\n", T.Password, adminPass)
+		fmt.Println(strings.Repeat("-", 50))
+	}
+	if installOpenFluxChoice {
+		fmt.Println(T.OpenFluxHeader)
+		fmt.Println(strings.Repeat("-", 50))
+		fmt.Printf("%s: %s\n", T.OpenFluxTransport, ofluxTransport)
+		if ofluxURL != "" {
+			fmt.Printf("%s: %s\n", T.OpenFluxURL, ofluxURL)
+		}
+		if ofluxKey != "" {
+			fmt.Printf("%s: %s\n", T.OpenFluxSecretKey, ofluxKey)
+			fmt.Println(T.OpenFluxKeyNotice)
+		}
+		fmt.Println(strings.Repeat("-", 50))
+		fmt.Println(T.OpenFluxCmdExample + ":")
+		keyFlag := ""
+		if ofluxKey != "" {
+			keyFlag = " --encryption-key-file=secret.key"
+		}
+		urlArg := ""
+		if ofluxURL != "" {
+			urlArg = fmt.Sprintf(" -u \"%s\"", ofluxURL)
+		}
+		fmt.Printf(" macOS (TUN):   sudo openflux -r client -i tun -t %s%s%s\n", ofluxTransport, urlArg, keyFlag)
+		fmt.Printf(" Win / Linux:   openflux -r client -i socks5 -t %s%s -s :1080%s\n", ofluxTransport, urlArg, keyFlag)
+		fmt.Println(T.OpenFluxMgrCmd)
 		fmt.Println(strings.Repeat("-", 50))
 	}
 	fmt.Printf("%s: %s\n", T.SSHPort, sshPort)
@@ -814,4 +966,119 @@ func disableSSHSocket() {
 	if err := exec.Command("systemctl", "enable", "--now", "sshd").Run(); err != nil {
 		run("systemctl", "enable", "--now", "ssh")
 	}
+}
+
+func installOpenFlux(transport, docURL, secretKey, extraFlags string) {
+	arch := runtime.GOARCH
+	var binName string
+	switch arch {
+	case "amd64":
+		binName = "openflux-linux-amd64"
+	case "arm64":
+		binName = "openflux-linux-arm64"
+	case "arm":
+		binName = "openflux-linux-arm"
+	default:
+		binName = "openflux-linux-amd64"
+	}
+
+	targetPath := "/usr/local/bin/openflux"
+	releaseURL := fmt.Sprintf("https://github.com/p1neappleXpress/OpenFlux/releases/latest/download/%s", binName)
+
+	downloadCmd := fmt.Sprintf("curl -fsSL -L -o %s %s || curl -fsSL -L -o %s https://github.com/p1neappleXpress/OpenFlux/releases/download/0.0.3/%s", targetPath, releaseURL, targetPath, binName)
+	run("bash", "-c", downloadCmd)
+
+	if _, err := os.Stat(targetPath); err != nil {
+		log.Printf("❌ Failed to download OpenFlux binary: %v\n", err)
+		return
+	}
+	run("chmod", "+x", targetPath)
+
+	_ = os.MkdirAll("/etc/openflux", 0755)
+
+	totalFlags := strings.TrimSpace(extraFlags)
+	if secretKey != "" {
+		_ = os.WriteFile("/etc/openflux/secret.key", []byte(secretKey+"\n"), 0600)
+		if totalFlags != "" {
+			totalFlags += " "
+		}
+		totalFlags += "--encryption-key-file=/etc/openflux/secret.key"
+	}
+
+	urlParam := ""
+	if docURL != "" {
+		urlParam = fmt.Sprintf("URL=\"%s\"\n", docURL)
+	} else {
+		urlParam = "URL=\"\"\n"
+	}
+
+	confContent := fmt.Sprintf("# OpenFlux Exit Node Configuration\nROLE=exit\nMODE=l3\n%sTRANSPORT=%s\nEXTRA_FLAGS=\"%s\"\n", urlParam, transport, totalFlags)
+	_ = os.WriteFile("/etc/openflux/openflux.conf", []byte(confContent), 0644)
+
+	// Enable net.ipv4.ip_forward for L3 routing
+	_ = os.MkdirAll("/etc/sysctl.d", 0755)
+	_ = os.WriteFile("/etc/sysctl.d/99-openflux.conf", []byte("net.ipv4.ip_forward=1\n"), 0644)
+	run("sysctl", "-w", "net.ipv4.ip_forward=1")
+
+	// Ensure iptables is installed
+	run("apt-get", "install", "-y", "iptables")
+
+	// Apply kernel RST drop for L3 exit mode
+	run("bash", "-c", "iptables -C OUTPUT -p tcp --tcp-flags RST RST -j DROP 2>/dev/null || iptables -A OUTPUT -p tcp --tcp-flags RST RST -j DROP")
+
+	// Create systemd service
+	serviceContent := `[Unit]
+Description=OpenFlux Exit Node Tunnel
+After=network.target network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+EnvironmentFile=/etc/openflux/openflux.conf
+ExecStartPre=/bin/sh -c 'iptables -C OUTPUT -p tcp --tcp-flags RST RST -j DROP 2>/dev/null || iptables -A OUTPUT -p tcp --tcp-flags RST RST -j DROP'
+ExecStart=/bin/sh -c 'URL_ARG=""; [ -n "$URL" ] && URL_ARG="--url=$URL"; exec /usr/local/bin/openflux --role=${ROLE} --mode=${MODE} --transport=${TRANSPORT} $URL_ARG ${EXTRA_FLAGS}'
+Restart=always
+RestartSec=5
+LimitNOFILE=65535
+
+[Install]
+WantedBy=multi-user.target
+`
+	_ = os.WriteFile("/etc/systemd/system/openflux.service", []byte(serviceContent), 0644)
+	run("systemctl", "daemon-reload")
+	run("systemctl", "enable", "--now", "openflux")
+
+	// Create openflux-mgr helper script
+	mgrContent := `#!/bin/bash
+case "$1" in
+    status)
+        systemctl status openflux
+        ;;
+    logs)
+        journalctl -u openflux -f -n 100
+        ;;
+    restart)
+        systemctl restart openflux
+        systemctl status openflux --no-pager
+        ;;
+    start)
+        systemctl start openflux
+        ;;
+    stop)
+        systemctl stop openflux
+        ;;
+    config)
+        ${EDITOR:-nano} /etc/openflux/openflux.conf
+        echo "Restarting openflux service..."
+        systemctl restart openflux
+        ;;
+    *)
+        echo "OpenFlux Exit Node Manager"
+        echo "Usage: openflux-mgr {status|logs|restart|start|stop|config}"
+        ;;
+esac
+`
+	_ = os.WriteFile("/usr/local/bin/openflux-mgr", []byte(mgrContent), 0755)
+	run("chmod", "+x", "/usr/local/bin/openflux-mgr")
 }

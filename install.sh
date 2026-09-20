@@ -34,14 +34,15 @@ case "$ARCH" in
         ;;
 esac
 
+BRANCH="${FAST_VPS_BRANCH:-test}"
+RAW_URL="https://raw.githubusercontent.com/ohneRE-L/fast-vps-setup/${BRANCH}/${BIN_NAME}"
+FALLBACK_RAW_URL="https://raw.githubusercontent.com/ohneRE-L/fast-vps-setup/${BRANCH}/setup_server"
 RELEASE_URL="https://github.com/ohneRE-L/fast-vps-setup/releases/latest/download/${BIN_NAME}"
-RAW_URL="https://raw.githubusercontent.com/ohneRE-L/fast-vps-setup/main/${BIN_NAME}"
-FALLBACK_RAW_URL="https://raw.githubusercontent.com/ohneRE-L/fast-vps-setup/main/setup_server"
 
-# Скачиваем бинарник: сначала из GitHub Releases, затем fallback на raw
-if ! curl -fsSL -o /usr/local/bin/setup_server "$RELEASE_URL"; then
-    if ! curl -fsSL -o /usr/local/bin/setup_server "$RAW_URL"; then
-        if ! curl -fsSL -o /usr/local/bin/setup_server "$FALLBACK_RAW_URL"; then
+# Скачиваем бинарник: сначала из raw текущей ветки, затем fallback на GitHub Releases
+if ! curl -fsSL -o /usr/local/bin/setup_server "$RAW_URL"; then
+    if ! curl -fsSL -o /usr/local/bin/setup_server "$FALLBACK_RAW_URL"; then
+        if ! curl -fsSL -o /usr/local/bin/setup_server "$RELEASE_URL"; then
             echo -e "${RED}Error: Failed to download binary for $ARCH${NC}"
             exit 1
         fi

@@ -8,6 +8,7 @@ vendor/
 .vscode/
 *.swp
 
-# Скомпилированные бинарники
-/setup_server*
-/bin/
+# Скомпилированные бинарники и артефакты
+setup_server*
+/bin/
+checksums.txt

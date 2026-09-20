@@ -20,25 +20,17 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.26'
+          go-version: '1.22'
+          check-latest: true
 
-
-      - name: Build AMD64
+      - name: Build Binaries
         env:
           CGO_ENABLED: 0
-          GOOS: linux
-          GOARCH: amd64
         run: |
-          go build -ldflags="-s -w" -o setup_server_amd64 main.go
+          GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o setup_server_amd64 main.go
           cp setup_server_amd64 setup_server
-
-      - name: Build ARM64
-        env:
-          CGO_ENABLED: 0
-          GOOS: linux
-          GOARCH: arm64
-        run: |
-          go build -ldflags="-s -w" -o setup_server_arm64 main.go
+          GOOS=linux GOARCH=arm64 go build -trimpath -ldflags="-s -w" -o setup_server_arm64 main.go
+          sha256sum setup_server setup_server_amd64 setup_server_arm64 > checksums.txt
 
       - name: Publish Release Assets
         uses: softprops/action-gh-release@v2
@@ -51,5 +43,4 @@ jobs:
             setup_server
             setup_server_amd64
             setup_server_arm64
-
-
+            checksums.txt

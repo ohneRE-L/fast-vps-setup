@@ -87,6 +87,8 @@ type Messages struct {
 	OpenFluxOneMeToken      string
 	OpenFluxOneMeUID        string
 	OpenFluxEncryptPrompt   string
+	OpenFluxAutoUpdatePrompt string
+	OpenFluxAutoUpdateStatus string
 	OpenFluxCodecPrompt     string
 	OpenFluxURLCleanNotice  string
 	OpenFluxInvalidDocID    string
@@ -173,6 +175,8 @@ var ruMsgs = Messages{
 	OpenFluxOneMeToken:      "👉 Введите MAX Web token (--maxToken): ",
 	OpenFluxOneMeUID:        "👉 Введите MAX Call User ID (--maxUid): ",
 	OpenFluxEncryptPrompt:   "Включить сквозное шифрование AES-256-GCM (будет сгенерирован секретный ключ)?",
+	OpenFluxAutoUpdatePrompt: "Включить автообновление OpenFlux (systemd таймер для автоматической проверки и обновления при выходе новых версий)?",
+	OpenFluxAutoUpdateStatus: "🔄 Автообновление",
 	OpenFluxCodecPrompt:     "👉 Выберите профиль кодека для OpenFlux:\n  1. Универсальный: Android + iOS + PC (--codec=legacy) [Рекомендуется]\n  2. High-Performance: Только PC (потоковый batched+zstd)\nВаш выбор [1/2, Enter = 1]: ",
 	OpenFluxURLCleanNotice:  "✨ Ссылка очищена и приведена к формату OpenFlux:\n   ",
 	OpenFluxInvalidDocID:    "Не удалось извлечь ID документа из ссылки. Проверьте формат ссылки.",
@@ -259,6 +263,8 @@ var enMsgs = Messages{
 	OpenFluxOneMeToken:      "👉 Enter MAX Web token (--maxToken): ",
 	OpenFluxOneMeUID:        "👉 Enter MAX Call User ID (--maxUid): ",
 	OpenFluxEncryptPrompt:   "Enable end-to-end AES-256-GCM encryption (a secret key will be generated)?",
+	OpenFluxAutoUpdatePrompt: "Enable automatic updates for OpenFlux (systemd timer to auto-update binary when new releases arrive)?",
+	OpenFluxAutoUpdateStatus: "🔄 Auto-update",
 	OpenFluxCodecPrompt:     "👉 Choose codec profile for OpenFlux:\n  1. Universal: Android + iOS + PC (--codec=legacy) [Recommended]\n  2. High-Performance: PC only (batched+zstd)\nYour choice [1/2, Enter = 1]: ",
 	OpenFluxURLCleanNotice:  "✨ URL cleaned and formatted for OpenFlux:\n   ",
 	OpenFluxInvalidDocID:    "Could not extract document ID from the URL. Please verify the format.",
@@ -521,6 +527,7 @@ func main() {
 	ofluxCodec := "legacy"
 	ofluxExtraFlags := ""
 	ofluxKey := ""
+	ofluxAutoUpdate := true
 
 	if installOpenFluxChoice {
 		isOpenFluxInstalled := false
@@ -633,6 +640,15 @@ func main() {
 		if askYesNo(T.OpenFluxEncryptPrompt, reader) {
 			ofluxKey = generateRandomString(32)
 		}
+
+		ofluxAutoUpdate = askYesNo(T.OpenFluxAutoUpdatePrompt, reader)
+		if envAU := os.Getenv("FAST_VPS_OPENFLUX_AUTOUPDATE"); envAU != "" {
+			if envAU == "1" || strings.ToLower(envAU) == "true" || strings.ToLower(envAU) == "yes" {
+				ofluxAutoUpdate = true
+			} else if envAU == "0" || strings.ToLower(envAU) == "false" || strings.ToLower(envAU) == "no" {
+				ofluxAutoUpdate = false
+			}
+		}
 	}
 
 	secretPath := generateRandomString(12)
@@ -716,7 +732,7 @@ func main() {
 
 	if installOpenFluxChoice {
 		fmt.Println("\n" + T.InstallingOpenFlux)
-		installOpenFlux(ofluxTransport, ofluxURL, ofluxCodec, ofluxKey, ofluxExtraFlags)
+		installOpenFlux(ofluxTransport, ofluxURL, ofluxCodec, ofluxKey, ofluxExtraFlags, ofluxAutoUpdate)
 	}
 
 	if install3xUI {
@@ -770,6 +786,11 @@ func main() {
 			fmt.Println(" Android / iOS: Совместимо (профиль legacy включен)")
 		} else {
 			fmt.Println(" Android / iOS: Внимание: мобильные клиенты требуют профиль legacy (выбран batched)")
+		}
+		if ofluxAutoUpdate {
+			fmt.Printf(" %s: Включено (таймер каждые 6 часов) / Enabled (every 6h)\n", T.OpenFluxAutoUpdateStatus)
+		} else {
+			fmt.Printf(" %s: Выключено / Disabled\n", T.OpenFluxAutoUpdateStatus)
 		}
 		fmt.Println(T.OpenFluxMgrCmd)
 		fmt.Println(strings.Repeat("-", 50))
@@ -1058,7 +1079,7 @@ func disableSSHSocket() {
 	}
 }
 
-func installOpenFlux(transport, docURL, codec, secretKey, extraFlags string) {
+func installOpenFlux(transport, docURL, codec, secretKey, extraFlags string, autoUpdate bool) {
 	arch := runtime.GOARCH
 	var binName string
 	switch arch {
@@ -1086,6 +1107,15 @@ func installOpenFlux(transport, docURL, codec, secretKey, extraFlags string) {
 
 	_ = os.MkdirAll("/etc/openflux", 0755)
 
+	// Save current version tag
+	curTagCmd := `curl -sI https://github.com/p1neappleXpress/OpenFlux/releases/latest | grep -i '^location:' | sed 's/.*tag\///' | tr -d '\r\n[:space:]'`
+	out, _ := exec.Command("bash", "-c", curTagCmd).Output()
+	curTag := strings.TrimSpace(string(out))
+	if curTag == "" {
+		curTag = "latest"
+	}
+	_ = os.WriteFile("/etc/openflux/version", []byte(curTag+"\n"), 0644)
+
 	totalFlags := strings.TrimSpace(extraFlags)
 	if secretKey != "" {
 		_ = os.WriteFile("/etc/openflux/secret.key", []byte(secretKey+"\n"), 0600)
@@ -1102,7 +1132,12 @@ func installOpenFlux(transport, docURL, codec, secretKey, extraFlags string) {
 		urlParam = "URL=\"\"\n"
 	}
 
-	confContent := fmt.Sprintf("# OpenFlux Exit Node Configuration\nROLE=exit\nMODE=l3\nCODEC=%s\nTRANSPORT=%s\n%sEXTRA_FLAGS=\"%s\"\n", codec, transport, urlParam, totalFlags)
+	autoUpdateStr := "yes"
+	if !autoUpdate {
+		autoUpdateStr = "no"
+	}
+
+	confContent := fmt.Sprintf("# OpenFlux Exit Node Configuration\nROLE=exit\nMODE=l3\nCODEC=%s\nTRANSPORT=%s\nAUTO_UPDATE=%s\n%sEXTRA_FLAGS=\"%s\"\n", codec, transport, autoUpdateStr, urlParam, totalFlags)
 	_ = os.WriteFile("/etc/openflux/openflux.conf", []byte(confContent), 0644)
 
 	// Stop existing service if running to prevent file locks and command mismatch
@@ -1137,15 +1172,144 @@ LimitNOFILE=65535
 WantedBy=multi-user.target
 `
 	_ = os.WriteFile("/etc/systemd/system/openflux.service", []byte(serviceContent), 0644)
+
+	// Create openflux-update script
+	updateScript := `#!/bin/bash
+set -euo pipefail
+
+CONF="/etc/openflux/openflux.conf"
+if [ -f "$CONF" ]; then
+    # shellcheck disable=SC1090
+    . "$CONF"
+fi
+
+FORCE=0
+for arg in "$@"; do
+    case "$arg" in
+        --force|-f) FORCE=1 ;;
+    esac
+done
+
+if [ "${AUTO_UPDATE:-yes}" = "no" ] && [ "$FORCE" -eq 0 ]; then
+    echo "[OpenFlux Updater] Auto-update is disabled in $CONF. Use --force to update manually."
+    exit 0
+fi
+
+ARCH=$(uname -m)
+case "$ARCH" in
+    x86_64|amd64) BIN_NAME="openflux-linux-amd64" ;;
+    aarch64|arm64) BIN_NAME="openflux-linux-arm64" ;;
+    arm*) BIN_NAME="openflux-linux-arm" ;;
+    *) echo "[OpenFlux Updater] Unsupported architecture: $ARCH" >&2; exit 1 ;;
+esac
+
+TARGET="/usr/local/bin/openflux"
+VER_FILE="/etc/openflux/version"
+CURRENT_VER=""
+[ -f "$VER_FILE" ] && CURRENT_VER=$(cat "$VER_FILE" | tr -d '[:space:]')
+
+LATEST_TAG=$(curl -sI https://github.com/p1neappleXpress/OpenFlux/releases/latest | grep -i '^location:' | sed 's/.*tag\///' | tr -d '\r\n[:space:]')
+
+if [ -z "$LATEST_TAG" ]; then
+    echo "[OpenFlux Updater] Warning: could not determine latest release tag on GitHub." >&2
+    exit 0
+fi
+
+if [ -n "$CURRENT_VER" ] && [ "$CURRENT_VER" = "$LATEST_TAG" ] && [ "$FORCE" -eq 0 ]; then
+    echo "[OpenFlux Updater] OpenFlux is already up to date ($CURRENT_VER)."
+    exit 0
+fi
+
+echo "[OpenFlux Updater] Updating OpenFlux (${CURRENT_VER:-unknown} -> $LATEST_TAG)..."
+TMP_BIN="/tmp/openflux.new.$$"
+rm -f "$TMP_BIN"
+trap 'rm -f "$TMP_BIN"' EXIT
+
+DOWNLOAD_URL="https://github.com/p1neappleXpress/OpenFlux/releases/download/${LATEST_TAG}/${BIN_NAME}"
+if ! curl -fsSL -L -o "$TMP_BIN" "$DOWNLOAD_URL"; then
+    DOWNLOAD_URL="https://github.com/p1neappleXpress/OpenFlux/releases/latest/download/${BIN_NAME}"
+    if ! curl -fsSL -L -o "$TMP_BIN" "$DOWNLOAD_URL"; then
+        echo "[OpenFlux Updater] Failed to download binary from $DOWNLOAD_URL" >&2
+        exit 1
+    fi
+fi
+
+chmod +x "$TMP_BIN"
+if ! "$TMP_BIN" -h >/dev/null 2>&1; then
+    echo "[OpenFlux Updater] Downloaded binary failed execution test. Update aborted." >&2
+    exit 1
+fi
+
+[ -f "$TARGET" ] && cp -f "$TARGET" "${TARGET}.bak"
+mv -f "$TMP_BIN" "$TARGET"
+echo "$LATEST_TAG" > "$VER_FILE"
+
+if systemctl is-active --quiet openflux; then
+    echo "[OpenFlux Updater] Restarting openflux service..."
+    systemctl daemon-reload
+    systemctl restart openflux
+    sleep 2
+    if ! systemctl is-active --quiet openflux; then
+        echo "[OpenFlux Updater] Service failed after update! Rolling back..." >&2
+        if [ -f "${TARGET}.bak" ]; then
+            cp -f "${TARGET}.bak" "$TARGET"
+            systemctl restart openflux
+            [ -n "$CURRENT_VER" ] && echo "$CURRENT_VER" > "$VER_FILE"
+            echo "[OpenFlux Updater] Rolled back to previous version successfully." >&2
+        fi
+        exit 1
+    fi
+fi
+
+echo "[OpenFlux Updater] Successfully updated to $LATEST_TAG."
+`
+	_ = os.WriteFile("/usr/local/bin/openflux-update", []byte(updateScript), 0755)
+	run("chmod", "+x", "/usr/local/bin/openflux-update")
+
+	// Create openflux-update systemd service and timer
+	updateServiceContent := `[Unit]
+Description=OpenFlux Binary Auto-Update Service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/openflux-update
+`
+	_ = os.WriteFile("/etc/systemd/system/openflux-update.service", []byte(updateServiceContent), 0644)
+
+	updateTimerContent := `[Unit]
+Description=Check and update OpenFlux binary periodically
+After=network-online.target
+
+[Timer]
+OnBootSec=15min
+OnUnitActiveSec=6h
+RandomizedDelaySec=30min
+
+[Install]
+WantedBy=timers.target
+`
+	_ = os.WriteFile("/etc/systemd/system/openflux-update.timer", []byte(updateTimerContent), 0644)
+
 	run("systemctl", "daemon-reload")
 	run("systemctl", "enable", "openflux")
 	run("systemctl", "restart", "openflux")
+
+	if autoUpdate {
+		run("systemctl", "enable", "--now", "openflux-update.timer")
+	} else {
+		run("systemctl", "stop", "openflux-update.timer")
+		run("systemctl", "disable", "openflux-update.timer")
+	}
 
 	// Create openflux-mgr helper script
 	mgrContent := `#!/bin/bash
 case "$1" in
     status)
         systemctl status openflux --no-pager
+        echo ""
+        systemctl status openflux-update.timer --no-pager 2>/dev/null || true
         ;;
     logs)
         journalctl -u openflux -f -n 100
@@ -1163,6 +1327,30 @@ case "$1" in
     stop)
         systemctl stop openflux
         ;;
+    update)
+        /usr/local/bin/openflux-update --force
+        ;;
+    autoupdate)
+        case "${2:-}" in
+            on|enable)
+                sed -i 's/^AUTO_UPDATE=.*/AUTO_UPDATE=yes/' /etc/openflux/openflux.conf 2>/dev/null || echo "AUTO_UPDATE=yes" >> /etc/openflux/openflux.conf
+                systemctl daemon-reload
+                systemctl enable --now openflux-update.timer
+                echo "OpenFlux auto-update timer enabled (runs every 6 hours)."
+                ;;
+            off|disable)
+                sed -i 's/^AUTO_UPDATE=.*/AUTO_UPDATE=no/' /etc/openflux/openflux.conf 2>/dev/null || echo "AUTO_UPDATE=no" >> /etc/openflux/openflux.conf
+                systemctl stop openflux-update.timer 2>/dev/null || true
+                systemctl disable openflux-update.timer 2>/dev/null || true
+                echo "OpenFlux auto-update timer disabled."
+                ;;
+            *)
+                echo "OpenFlux Auto-Update status:"
+                systemctl status openflux-update.timer --no-pager 2>/dev/null || echo "Timer is not active."
+                echo "Usage: openflux-mgr autoupdate {on|off}"
+                ;;
+        esac
+        ;;
     config)
         ${EDITOR:-nano} /etc/openflux/openflux.conf
         echo "Reloading systemd and restarting openflux service..."
@@ -1172,6 +1360,11 @@ case "$1" in
         ;;
     uninstall)
         echo "Uninstalling OpenFlux..."
+        systemctl stop openflux-update.timer 2>/dev/null || true
+        systemctl disable openflux-update.timer 2>/dev/null || true
+        rm -f /etc/systemd/system/openflux-update.timer
+        rm -f /etc/systemd/system/openflux-update.service
+        rm -f /usr/local/bin/openflux-update
         systemctl stop openflux 2>/dev/null || true
         systemctl disable openflux 2>/dev/null || true
         rm -f /etc/systemd/system/openflux.service
@@ -1185,7 +1378,7 @@ case "$1" in
         ;;
     *)
         echo "OpenFlux Exit Node Manager"
-        echo "Usage: openflux-mgr {status|logs|restart|start|stop|config|uninstall}"
+        echo "Usage: openflux-mgr {status|logs|restart|start|stop|update|autoupdate|config|uninstall}"
         ;;
 esac
 `
@@ -1232,6 +1425,13 @@ func cleanOpenFluxURL(transport, rawURL string) (string, error) {
 
 func uninstallOpenFlux() {
 	fmt.Println("\n" + T.UninstallingOpenFlux)
+
+	// Stop and disable updater timer and service
+	run("systemctl", "stop", "openflux-update.timer")
+	run("systemctl", "disable", "openflux-update.timer")
+	_ = os.Remove("/etc/systemd/system/openflux-update.timer")
+	_ = os.Remove("/etc/systemd/system/openflux-update.service")
+	_ = os.Remove("/usr/local/bin/openflux-update")
 
 	// Stop and disable systemd service
 	run("systemctl", "stop", "openflux")

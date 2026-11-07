@@ -11,7 +11,6 @@ import (
 	"os"
 	"os/exec"
 	"regexp"
-	"runtime"
 	"strconv"
 	"strings"
 	"syscall"
@@ -73,37 +72,10 @@ type Messages struct {
 	MenuOption10            string
 	MenuOption11            string
 	MenuOption12            string
-	MenuOption13            string
-	OpenFluxActionPrompt    string
 	MenuOption0             string
 	ExitMsg                 string
 	DisablingSocket         string
 	RebootNotice            string
-	InstallOpenFluxPrompt   string
-	OpenFluxTransportPrompt string
-	OpenFluxURLPrompt       string
-	OpenFluxURLEmpty        string
-	OpenFluxCupsPrompt      string
-	OpenFluxOneMeToken      string
-	OpenFluxOneMeUID        string
-	OpenFluxEncryptPrompt   string
-	OpenFluxAutoUpdatePrompt string
-	OpenFluxAutoUpdateStatus string
-	OpenFluxCodecPrompt     string
-	OpenFluxURLCleanNotice  string
-	OpenFluxInvalidDocID    string
-	InstallingOpenFlux      string
-	UninstallingOpenFlux    string
-	OpenFluxUninstalled     string
-	OpenFluxAlreadyInstalled string
-	OpenFluxReinstallChoice string
-	OpenFluxHeader          string
-	OpenFluxTransport       string
-	OpenFluxURL             string
-	OpenFluxSecretKey       string
-	OpenFluxKeyNotice       string
-	OpenFluxCmdExample      string
-	OpenFluxMgrCmd          string
 }
 
 var ruMsgs = Messages{
@@ -161,37 +133,10 @@ var ruMsgs = Messages{
 	MenuOption10:     "10. Отключить SSH Socket (включить классический SSH Service)",
 	MenuOption11:     "11. Обновить пакеты и ядро",
 	MenuOption12:            "12. Настройка Swap (2 GB)",
-	MenuOption13:            "13. Установка, настройка или удаление OpenFlux (Exit Node)",
-	OpenFluxActionPrompt:    "👉 Выберите действие для OpenFlux:\n  1. Установка и настройка (по умолчанию)\n  2. Удаление OpenFlux\nВаш выбор [1/2, Enter = 1]: ",
 	MenuOption0:             "0. Выход",
 	ExitMsg:                 "Выход из скрипта...",
 	DisablingSocket:         "[3.1/6] ⚙️ Отключение SSH Socket и запуск классического SSH Service...",
 	RebootNotice:            "⚠️ Рекомендуется перезагрузить сервер (команда 'reboot') для применения изменений ядра и BBR.",
-	InstallOpenFluxPrompt:   "Установить OpenFlux?",
-	OpenFluxTransportPrompt: "👉 Выберите транспорт для OpenFlux:\n  1. Yandex.Docs (WebSocket) [по умолчанию]\n  2. Mail.ru Docs (WebSocket)\n  3. Cups.online (Centrifugo комнаты)\n  4. MAX / OneMe (WebRTC)\n  5. Yandex Volga (HTTP relay + WS)\nВаш выбор [1-5, Enter = 1]: ",
-	OpenFluxURLPrompt:       "👉 Введите URL документа / публичную ссылку (например, ссылка на документ в Яндекс.Документах или Mail.ru):\n",
-	OpenFluxURLEmpty:        "URL не может быть пустым",
-	OpenFluxCupsPrompt:      "👉 Введите ID комнаты Cups.online (или нажмите Enter для автоматической генерации комнат exit-нодой): ",
-	OpenFluxOneMeToken:      "👉 Введите MAX Web token (--maxToken): ",
-	OpenFluxOneMeUID:        "👉 Введите MAX Call User ID (--maxUid): ",
-	OpenFluxEncryptPrompt:   "Включить сквозное шифрование AES-256-GCM (будет сгенерирован секретный ключ)?",
-	OpenFluxAutoUpdatePrompt: "Включить автообновление OpenFlux (systemd таймер для автоматической проверки и обновления при выходе новых версий)?",
-	OpenFluxAutoUpdateStatus: "🔄 Автообновление",
-	OpenFluxCodecPrompt:     "👉 Выберите профиль кодека для OpenFlux:\n  1. Универсальный: Android + iOS + PC (--codec=legacy) [Рекомендуется]\n  2. High-Performance: Только PC (потоковый batched+zstd)\nВаш выбор [1/2, Enter = 1]: ",
-	OpenFluxURLCleanNotice:  "✨ Ссылка очищена и приведена к формату OpenFlux:\n   ",
-	OpenFluxInvalidDocID:    "Не удалось извлечь ID документа из ссылки. Проверьте формат ссылки.",
-	InstallingOpenFlux:      "[5.7/6] 📥 Установка и настройка OpenFlux (Exit Node)...",
-	UninstallingOpenFlux:    "[5.8/6] 🗑 Удаление OpenFlux...",
-	OpenFluxUninstalled:     "✅ OpenFlux успешно и полностью удален из системы.",
-	OpenFluxAlreadyInstalled: "OpenFlux уже установлен на этом сервере.",
-	OpenFluxReinstallChoice: "Выберите действие:\n  1. Переустановить / изменить параметры (по умолчанию)\n  2. Удалить OpenFlux\nВаш выбор [1/2, Enter = 1]: ",
-	OpenFluxHeader:          "🛡 OPENFLUX НАСТРОЕН И ЗАПУЩЕН",
-	OpenFluxTransport:       "📡 Транспорт",
-	OpenFluxURL:             "🔗 Документ/URL",
-	OpenFluxSecretKey:       "🔑 Секретный ключ шифрования",
-	OpenFluxKeyNotice:       "👉 Скопируйте этот ключ в файл secret.key на клиенте и добавьте параметр --encryption-key-file=secret.key",
-	OpenFluxCmdExample:      "💻 Примеры подключения клиента",
-	OpenFluxMgrCmd:          "Управление сервисом: 'openflux-mgr' (или 'systemctl status openflux')",
 }
 
 var enMsgs = Messages{
@@ -249,37 +194,10 @@ var enMsgs = Messages{
 	MenuOption10:     "10. Disable SSH Socket (enable classic SSH Service)",
 	MenuOption11:     "11. Update packages and kernel",
 	MenuOption12:            "12. Setup Swap (2 GB)",
-	MenuOption13:            "13. Install, configure or uninstall OpenFlux (Exit Node)",
-	OpenFluxActionPrompt:    "👉 Choose action for OpenFlux:\n  1. Install & configure (default)\n  2. Uninstall OpenFlux\nYour choice [1/2, Enter = 1]: ",
 	MenuOption0:             "0. Exit",
 	ExitMsg:                 "Exiting script...",
 	DisablingSocket:         "[3.1/6] ⚙️ Disabling SSH Socket and starting classic SSH Service...",
 	RebootNotice:            "⚠️ It is recommended to reboot the server ('reboot' command) to apply kernel and BBR changes.",
-	InstallOpenFluxPrompt:   "Install OpenFlux?",
-	OpenFluxTransportPrompt: "👉 Choose transport for OpenFlux:\n  1. Yandex.Docs (WebSocket) [default]\n  2. Mail.ru Docs (WebSocket)\n  3. Cups.online (Centrifugo rooms)\n  4. MAX / OneMe (WebRTC)\n  5. Yandex Volga (HTTP relay + WS)\nYour choice [1-5, Enter = 1]: ",
-	OpenFluxURLPrompt:       "👉 Enter document URL / public link (e.g., Yandex Docs or Mail.ru document URL):\n",
-	OpenFluxURLEmpty:        "URL cannot be empty",
-	OpenFluxCupsPrompt:      "👉 Enter Cups.online room ID (or press Enter to auto-generate rooms on exit node): ",
-	OpenFluxOneMeToken:      "👉 Enter MAX Web token (--maxToken): ",
-	OpenFluxOneMeUID:        "👉 Enter MAX Call User ID (--maxUid): ",
-	OpenFluxEncryptPrompt:   "Enable end-to-end AES-256-GCM encryption (a secret key will be generated)?",
-	OpenFluxAutoUpdatePrompt: "Enable automatic updates for OpenFlux (systemd timer to auto-update binary when new releases arrive)?",
-	OpenFluxAutoUpdateStatus: "🔄 Auto-update",
-	OpenFluxCodecPrompt:     "👉 Choose codec profile for OpenFlux:\n  1. Universal: Android + iOS + PC (--codec=legacy) [Recommended]\n  2. High-Performance: PC only (batched+zstd)\nYour choice [1/2, Enter = 1]: ",
-	OpenFluxURLCleanNotice:  "✨ URL cleaned and formatted for OpenFlux:\n   ",
-	OpenFluxInvalidDocID:    "Could not extract document ID from the URL. Please verify the format.",
-	InstallingOpenFlux:      "[5.7/6] 📥 Installing and configuring OpenFlux (Exit Node)...",
-	UninstallingOpenFlux:    "[5.8/6] 🗑 Uninstalling OpenFlux...",
-	OpenFluxUninstalled:      "✅ OpenFlux has been completely uninstalled from the system.",
-	OpenFluxAlreadyInstalled: "OpenFlux is already installed on this server.",
-	OpenFluxReinstallChoice:  "Choose action:\n  1. Reinstall / update parameters (default)\n  2. Uninstall OpenFlux\nYour choice [1/2, Enter = 1]: ",
-	OpenFluxHeader:          "🛡 OPENFLUX CONFIGURED & RUNNING",
-	OpenFluxTransport:       "📡 Transport",
-	OpenFluxURL:             "🔗 Document/URL",
-	OpenFluxSecretKey:       "🔑 Encryption Secret Key",
-	OpenFluxKeyNotice:       "👉 Copy this key to secret.key file on your client and use --encryption-key-file=secret.key",
-	OpenFluxCmdExample:      "💻 Client connection examples",
-	OpenFluxMgrCmd:          "Service management: 'openflux-mgr' (or 'systemctl status openflux')",
 }
 
 var T Messages
@@ -455,12 +373,11 @@ func main() {
 	fmt.Println(T.MenuOption10)
 	fmt.Println(T.MenuOption11)
 	fmt.Println(T.MenuOption12)
-	fmt.Println(T.MenuOption13)
 	fmt.Println(T.MenuOption0)
 	fmt.Print("\n" + T.SelectComponents)
 
 	selection, _ := reader.ReadString('\n')
-	chosen, ok := parseSelection(selection, 13)
+	chosen, ok := parseSelection(selection, 12)
 	if !ok {
 		fmt.Println(T.ExitMsg)
 		os.Exit(0)
@@ -478,8 +395,6 @@ func main() {
 	disableSSHSocketChoice := chosen["10"]
 	updateSystemChoice := chosen["11"]
 	setupSwapChoice := chosen["12"]
-	installOpenFluxChoice := chosen["13"]
-	uninstallOpenFluxChoice := false
 
 	sshPort := getCurrentSSHPort()
 	if changeSSHPortChoice {
@@ -522,135 +437,6 @@ func main() {
 		}
 	}
 
-	ofluxTransport := "yandex"
-	ofluxURL := ""
-	ofluxCodec := "legacy"
-	ofluxExtraFlags := ""
-	ofluxKey := ""
-	ofluxAutoUpdate := true
-
-	if installOpenFluxChoice {
-		isOpenFluxInstalled := false
-		if _, err := os.Stat("/etc/systemd/system/openflux.service"); err == nil {
-			isOpenFluxInstalled = true
-		} else if _, err := os.Stat("/usr/local/bin/openflux"); err == nil {
-			isOpenFluxInstalled = true
-		} else if _, err := os.Stat("/etc/openflux"); err == nil {
-			isOpenFluxInstalled = true
-		} else if _, err := os.Stat("/usr/local/bin/openflux-mgr"); err == nil {
-			isOpenFluxInstalled = true
-		}
-
-		if isOpenFluxInstalled {
-			fmt.Println("\nℹ️ " + T.OpenFluxAlreadyInstalled)
-			fmt.Print(T.OpenFluxReinstallChoice)
-			act, _ := reader.ReadString('\n')
-			act = strings.TrimSpace(act)
-			if act == "2" {
-				uninstallOpenFluxChoice = true
-				installOpenFluxChoice = false
-			}
-		} else if strings.ToLower(strings.TrimSpace(selection)) != "all" {
-			fmt.Println("\n" + strings.Repeat("-", 40))
-			fmt.Print(T.OpenFluxActionPrompt)
-			act, _ := reader.ReadString('\n')
-			act = strings.TrimSpace(act)
-			if act == "2" {
-				uninstallOpenFluxChoice = true
-				installOpenFluxChoice = false
-			}
-		}
-	}
-
-	if installOpenFluxChoice {
-		fmt.Println("\n" + strings.Repeat("-", 40))
-		for {
-			fmt.Print(T.OpenFluxTransportPrompt)
-			input, _ := reader.ReadString('\n')
-			input = strings.TrimSpace(input)
-			if input == "" || input == "1" {
-				ofluxTransport = "yandex"
-				break
-			} else if input == "2" {
-				ofluxTransport = "mailru"
-				break
-			} else if input == "3" {
-				ofluxTransport = "cupsonline"
-				break
-			} else if input == "4" {
-				ofluxTransport = "oneme"
-				break
-			} else if input == "5" {
-				ofluxTransport = "vyandex"
-				break
-			} else {
-				fmt.Println("⚠️ Invalid selection / Неверный выбор")
-			}
-		}
-
-		if ofluxTransport == "cupsonline" {
-			fmt.Print(T.OpenFluxCupsPrompt)
-			input, _ := reader.ReadString('\n')
-			ofluxURL = strings.TrimSpace(input)
-		} else if ofluxTransport == "oneme" {
-			fmt.Print(T.OpenFluxOneMeToken)
-			token, _ := reader.ReadString('\n')
-			token = strings.TrimSpace(token)
-			fmt.Print(T.OpenFluxOneMeUID)
-			uid, _ := reader.ReadString('\n')
-			uid = strings.TrimSpace(uid)
-			if token != "" {
-				ofluxExtraFlags += fmt.Sprintf(" --maxToken=%s", token)
-			}
-			if uid != "" {
-				ofluxExtraFlags += fmt.Sprintf(" --maxUid=%s", uid)
-			}
-		} else {
-			for {
-				fmt.Print(T.OpenFluxURLPrompt)
-				input, _ := reader.ReadString('\n')
-				input = strings.TrimSpace(input)
-				if input == "" {
-					fmt.Println("⚠️ " + T.OpenFluxURLEmpty)
-					continue
-				}
-				cleaned, err := cleanOpenFluxURL(ofluxTransport, input)
-				if err != nil {
-					fmt.Printf("⚠️ %s (%v)\n", T.OpenFluxInvalidDocID, err)
-					continue
-				}
-				ofluxURL = cleaned
-				if ofluxURL != input {
-					fmt.Println(T.OpenFluxURLCleanNotice + ofluxURL)
-				}
-				break
-			}
-		}
-
-		// Выбор профиля кодека (legacy vs batched)
-		fmt.Print(T.OpenFluxCodecPrompt)
-		codecChoice, _ := reader.ReadString('\n')
-		codecChoice = strings.TrimSpace(codecChoice)
-		if codecChoice == "2" {
-			ofluxCodec = "batched"
-		} else {
-			ofluxCodec = "legacy"
-		}
-
-		if askYesNo(T.OpenFluxEncryptPrompt, reader) {
-			ofluxKey = generateRandomString(32)
-		}
-
-		ofluxAutoUpdate = askYesNo(T.OpenFluxAutoUpdatePrompt, reader)
-		if envAU := os.Getenv("FAST_VPS_OPENFLUX_AUTOUPDATE"); envAU != "" {
-			if envAU == "1" || strings.ToLower(envAU) == "true" || strings.ToLower(envAU) == "yes" {
-				ofluxAutoUpdate = true
-			} else if envAU == "0" || strings.ToLower(envAU) == "false" || strings.ToLower(envAU) == "no" {
-				ofluxAutoUpdate = false
-			}
-		}
-	}
-
 	secretPath := generateRandomString(12)
 	adminUser := generateRandomString(8)
 	adminPass := generateRandomString(14)
@@ -662,7 +448,7 @@ func main() {
 		fmt.Println("\n" + T.InstallingTools)
 		installBasicUtilities()
 	} else {
-		if configureUFWChoice || installFail2BanChoice || setupDNSChoice || install3xUI || installTelemtChoice || setupSwapChoice || installOpenFluxChoice {
+		if configureUFWChoice || installFail2BanChoice || setupDNSChoice || install3xUI || installTelemtChoice || setupSwapChoice {
 			_ = os.Setenv("DEBIAN_FRONTEND", "noninteractive")
 			run("apt", "update")
 			fmt.Println("\n" + T.InstallingTools)
@@ -726,15 +512,6 @@ func main() {
 		installTelemt()
 	}
 
-	if uninstallOpenFluxChoice {
-		uninstallOpenFlux()
-	}
-
-	if installOpenFluxChoice {
-		fmt.Println("\n" + T.InstallingOpenFlux)
-		installOpenFlux(ofluxTransport, ofluxURL, ofluxCodec, ofluxKey, ofluxExtraFlags, ofluxAutoUpdate)
-	}
-
 	if install3xUI {
 		fmt.Println("\n" + T.Finalizing)
 		finalConfig(adminUser, adminPass, secretPath)
@@ -753,46 +530,6 @@ func main() {
 		fmt.Printf("%s: http://%s:3/%s/\n", T.URL, ip, secretPath)
 		fmt.Printf("%s:  %s\n", T.Login, adminUser)
 		fmt.Printf("%s: %s\n", T.Password, adminPass)
-		fmt.Println(strings.Repeat("-", 50))
-	}
-	if installOpenFluxChoice {
-		fmt.Println(T.OpenFluxHeader)
-		fmt.Println(strings.Repeat("-", 50))
-		fmt.Printf("%s: %s\n", T.OpenFluxTransport, ofluxTransport)
-		if ofluxURL != "" {
-			fmt.Printf("%s: %s\n", T.OpenFluxURL, ofluxURL)
-		}
-		if ofluxKey != "" {
-			fmt.Printf("%s: %s\n", T.OpenFluxSecretKey, ofluxKey)
-			fmt.Println(T.OpenFluxKeyNotice)
-		}
-		fmt.Println(strings.Repeat("-", 50))
-		fmt.Println(T.OpenFluxCmdExample + ":")
-		codecFlag := ""
-		if ofluxCodec == "legacy" {
-			codecFlag = " -c legacy"
-		}
-		keyFlag := ""
-		if ofluxKey != "" {
-			keyFlag = " --encryption-key-file=secret.key"
-		}
-		urlArg := ""
-		if ofluxURL != "" {
-			urlArg = fmt.Sprintf(" -u \"%s\"", ofluxURL)
-		}
-		fmt.Printf(" macOS (TUN):   sudo openflux -r client -i tun -t %s%s%s%s\n", ofluxTransport, urlArg, codecFlag, keyFlag)
-		fmt.Printf(" Win / Linux:   openflux -r client -i socks5 -t %s%s -s :1080%s%s\n", ofluxTransport, urlArg, codecFlag, keyFlag)
-		if ofluxCodec == "legacy" {
-			fmt.Println(" Android / iOS: Совместимо (профиль legacy включен)")
-		} else {
-			fmt.Println(" Android / iOS: Внимание: мобильные клиенты требуют профиль legacy (выбран batched)")
-		}
-		if ofluxAutoUpdate {
-			fmt.Printf(" %s: Включено (таймер каждые 6 часов) / Enabled (every 6h)\n", T.OpenFluxAutoUpdateStatus)
-		} else {
-			fmt.Printf(" %s: Выключено / Disabled\n", T.OpenFluxAutoUpdateStatus)
-		}
-		fmt.Println(T.OpenFluxMgrCmd)
 		fmt.Println(strings.Repeat("-", 50))
 	}
 	fmt.Printf("%s: %s\n", T.SSHPort, sshPort)
@@ -1077,381 +814,5 @@ func disableSSHSocket() {
 	if err := exec.Command("systemctl", "enable", "--now", "sshd").Run(); err != nil {
 		run("systemctl", "enable", "--now", "ssh")
 	}
-}
-
-func installOpenFlux(transport, docURL, codec, secretKey, extraFlags string, autoUpdate bool) {
-	arch := runtime.GOARCH
-	var binName string
-	switch arch {
-	case "amd64":
-		binName = "openflux-linux-amd64"
-	case "arm64":
-		binName = "openflux-linux-arm64"
-	case "arm":
-		binName = "openflux-linux-arm"
-	default:
-		binName = "openflux-linux-amd64"
-	}
-
-	targetPath := "/usr/local/bin/openflux"
-	releaseURL := fmt.Sprintf("https://github.com/p1neappleXpress/OpenFlux/releases/latest/download/%s", binName)
-
-	downloadCmd := fmt.Sprintf("curl -fsSL -L -o %s %s || curl -fsSL -L -o %s https://github.com/p1neappleXpress/OpenFlux/releases/download/0.0.3/%s", targetPath, releaseURL, targetPath, binName)
-	run("bash", "-c", downloadCmd)
-
-	if _, err := os.Stat(targetPath); err != nil {
-		log.Printf("❌ Failed to download OpenFlux binary: %v\n", err)
-		return
-	}
-	run("chmod", "+x", targetPath)
-
-	_ = os.MkdirAll("/etc/openflux", 0755)
-
-	// Save current version tag
-	curTagCmd := `curl -sI https://github.com/p1neappleXpress/OpenFlux/releases/latest | grep -i '^location:' | sed 's/.*tag\///' | tr -d '\r\n[:space:]'`
-	out, _ := exec.Command("bash", "-c", curTagCmd).Output()
-	curTag := strings.TrimSpace(string(out))
-	if curTag == "" {
-		curTag = "latest"
-	}
-	_ = os.WriteFile("/etc/openflux/version", []byte(curTag+"\n"), 0644)
-
-	totalFlags := strings.TrimSpace(extraFlags)
-	if secretKey != "" {
-		_ = os.WriteFile("/etc/openflux/secret.key", []byte(secretKey+"\n"), 0600)
-		if totalFlags != "" {
-			totalFlags += " "
-		}
-		totalFlags += "--encryption-key-file=/etc/openflux/secret.key"
-	}
-
-	urlParam := ""
-	if docURL != "" {
-		urlParam = fmt.Sprintf("URL=\"%s\"\n", docURL)
-	} else {
-		urlParam = "URL=\"\"\n"
-	}
-
-	autoUpdateStr := "yes"
-	if !autoUpdate {
-		autoUpdateStr = "no"
-	}
-
-	confContent := fmt.Sprintf("# OpenFlux Exit Node Configuration\nROLE=exit\nMODE=l3\nCODEC=%s\nTRANSPORT=%s\nAUTO_UPDATE=%s\n%sEXTRA_FLAGS=\"%s\"\n", codec, transport, autoUpdateStr, urlParam, totalFlags)
-	_ = os.WriteFile("/etc/openflux/openflux.conf", []byte(confContent), 0644)
-
-	// Stop existing service if running to prevent file locks and command mismatch
-	run("systemctl", "stop", "openflux")
-
-	// Enable net.ipv4.ip_forward for L3 routing
-	_ = os.MkdirAll("/etc/sysctl.d", 0755)
-	_ = os.WriteFile("/etc/sysctl.d/99-openflux.conf", []byte("net.ipv4.ip_forward=1\n"), 0644)
-	run("sysctl", "-w", "net.ipv4.ip_forward=1")
-
-	// Ensure iptables is installed
-	run("apt-get", "install", "-y", "iptables")
-
-	// Create systemd service with isolated iptables RST-drop lifecycle
-	serviceContent := `[Unit]
-Description=OpenFlux Exit Node
-After=network.target network-online.target
-Wants=network-online.target
-
-[Service]
-Type=simple
-User=root
-EnvironmentFile=/etc/openflux/openflux.conf
-ExecStartPre=/bin/sh -c '/sbin/iptables -C OUTPUT -p tcp --tcp-flags RST RST -j DROP 2>/dev/null || /sbin/iptables -I OUTPUT 1 -p tcp --tcp-flags RST RST -j DROP'
-ExecStart=/bin/sh -c 'CODEC_ARG="${CODEC:-legacy}"; URL_ARG=""; [ -n "$URL" ] && URL_ARG="--url=$URL"; exec /usr/local/bin/openflux --role=${ROLE:-exit} --mode=${MODE:-l3} --codec=$CODEC_ARG --transport=${TRANSPORT:-yandex} $URL_ARG ${EXTRA_FLAGS}'
-ExecStopPost=/bin/sh -c '/sbin/iptables -D OUTPUT -p tcp --tcp-flags RST RST -j DROP 2>/dev/null || true'
-Restart=always
-RestartSec=3
-LimitNOFILE=65535
-
-[Install]
-WantedBy=multi-user.target
-`
-	_ = os.WriteFile("/etc/systemd/system/openflux.service", []byte(serviceContent), 0644)
-
-	// Create openflux-update script
-	updateScript := `#!/bin/bash
-set -euo pipefail
-
-CONF="/etc/openflux/openflux.conf"
-if [ -f "$CONF" ]; then
-    # shellcheck disable=SC1090
-    . "$CONF"
-fi
-
-FORCE=0
-for arg in "$@"; do
-    case "$arg" in
-        --force|-f) FORCE=1 ;;
-    esac
-done
-
-if [ "${AUTO_UPDATE:-yes}" = "no" ] && [ "$FORCE" -eq 0 ]; then
-    echo "[OpenFlux Updater] Auto-update is disabled in $CONF. Use --force to update manually."
-    exit 0
-fi
-
-ARCH=$(uname -m)
-case "$ARCH" in
-    x86_64|amd64) BIN_NAME="openflux-linux-amd64" ;;
-    aarch64|arm64) BIN_NAME="openflux-linux-arm64" ;;
-    arm*) BIN_NAME="openflux-linux-arm" ;;
-    *) echo "[OpenFlux Updater] Unsupported architecture: $ARCH" >&2; exit 1 ;;
-esac
-
-TARGET="/usr/local/bin/openflux"
-VER_FILE="/etc/openflux/version"
-CURRENT_VER=""
-[ -f "$VER_FILE" ] && CURRENT_VER=$(cat "$VER_FILE" | tr -d '[:space:]')
-
-LATEST_TAG=$(curl -sI https://github.com/p1neappleXpress/OpenFlux/releases/latest | grep -i '^location:' | sed 's/.*tag\///' | tr -d '\r\n[:space:]')
-
-if [ -z "$LATEST_TAG" ]; then
-    echo "[OpenFlux Updater] Warning: could not determine latest release tag on GitHub." >&2
-    exit 0
-fi
-
-if [ -n "$CURRENT_VER" ] && [ "$CURRENT_VER" = "$LATEST_TAG" ] && [ "$FORCE" -eq 0 ]; then
-    echo "[OpenFlux Updater] OpenFlux is already up to date ($CURRENT_VER)."
-    exit 0
-fi
-
-echo "[OpenFlux Updater] Updating OpenFlux (${CURRENT_VER:-unknown} -> $LATEST_TAG)..."
-TMP_BIN="/tmp/openflux.new.$$"
-rm -f "$TMP_BIN"
-trap 'rm -f "$TMP_BIN"' EXIT
-
-DOWNLOAD_URL="https://github.com/p1neappleXpress/OpenFlux/releases/download/${LATEST_TAG}/${BIN_NAME}"
-if ! curl -fsSL -L -o "$TMP_BIN" "$DOWNLOAD_URL"; then
-    DOWNLOAD_URL="https://github.com/p1neappleXpress/OpenFlux/releases/latest/download/${BIN_NAME}"
-    if ! curl -fsSL -L -o "$TMP_BIN" "$DOWNLOAD_URL"; then
-        echo "[OpenFlux Updater] Failed to download binary from $DOWNLOAD_URL" >&2
-        exit 1
-    fi
-fi
-
-chmod +x "$TMP_BIN"
-if ! "$TMP_BIN" -h >/dev/null 2>&1; then
-    echo "[OpenFlux Updater] Downloaded binary failed execution test. Update aborted." >&2
-    exit 1
-fi
-
-[ -f "$TARGET" ] && cp -f "$TARGET" "${TARGET}.bak"
-mv -f "$TMP_BIN" "$TARGET"
-echo "$LATEST_TAG" > "$VER_FILE"
-
-if systemctl is-active --quiet openflux; then
-    echo "[OpenFlux Updater] Restarting openflux service..."
-    systemctl daemon-reload
-    systemctl restart openflux
-    sleep 2
-    if ! systemctl is-active --quiet openflux; then
-        echo "[OpenFlux Updater] Service failed after update! Rolling back..." >&2
-        if [ -f "${TARGET}.bak" ]; then
-            cp -f "${TARGET}.bak" "$TARGET"
-            systemctl restart openflux
-            [ -n "$CURRENT_VER" ] && echo "$CURRENT_VER" > "$VER_FILE"
-            echo "[OpenFlux Updater] Rolled back to previous version successfully." >&2
-        fi
-        exit 1
-    fi
-fi
-
-echo "[OpenFlux Updater] Successfully updated to $LATEST_TAG."
-`
-	_ = os.WriteFile("/usr/local/bin/openflux-update", []byte(updateScript), 0755)
-	run("chmod", "+x", "/usr/local/bin/openflux-update")
-
-	// Create openflux-update systemd service and timer
-	updateServiceContent := `[Unit]
-Description=OpenFlux Binary Auto-Update Service
-After=network-online.target
-Wants=network-online.target
-
-[Service]
-Type=oneshot
-ExecStart=/usr/local/bin/openflux-update
-`
-	_ = os.WriteFile("/etc/systemd/system/openflux-update.service", []byte(updateServiceContent), 0644)
-
-	updateTimerContent := `[Unit]
-Description=Check and update OpenFlux binary periodically
-After=network-online.target
-
-[Timer]
-OnBootSec=15min
-OnUnitActiveSec=6h
-RandomizedDelaySec=30min
-
-[Install]
-WantedBy=timers.target
-`
-	_ = os.WriteFile("/etc/systemd/system/openflux-update.timer", []byte(updateTimerContent), 0644)
-
-	run("systemctl", "daemon-reload")
-	run("systemctl", "enable", "openflux")
-	run("systemctl", "restart", "openflux")
-
-	if autoUpdate {
-		run("systemctl", "enable", "--now", "openflux-update.timer")
-	} else {
-		run("systemctl", "stop", "openflux-update.timer")
-		run("systemctl", "disable", "openflux-update.timer")
-	}
-
-	// Create openflux-mgr helper script
-	mgrContent := `#!/bin/bash
-case "$1" in
-    status)
-        systemctl status openflux --no-pager
-        echo ""
-        systemctl status openflux-update.timer --no-pager 2>/dev/null || true
-        ;;
-    logs)
-        journalctl -u openflux -f -n 100
-        ;;
-    restart)
-        systemctl daemon-reload
-        systemctl restart openflux
-        systemctl status openflux --no-pager
-        ;;
-    start)
-        systemctl daemon-reload
-        systemctl start openflux
-        systemctl status openflux --no-pager
-        ;;
-    stop)
-        systemctl stop openflux
-        ;;
-    update)
-        /usr/local/bin/openflux-update --force
-        ;;
-    autoupdate)
-        case "${2:-}" in
-            on|enable)
-                sed -i 's/^AUTO_UPDATE=.*/AUTO_UPDATE=yes/' /etc/openflux/openflux.conf 2>/dev/null || echo "AUTO_UPDATE=yes" >> /etc/openflux/openflux.conf
-                systemctl daemon-reload
-                systemctl enable --now openflux-update.timer
-                echo "OpenFlux auto-update timer enabled (runs every 6 hours)."
-                ;;
-            off|disable)
-                sed -i 's/^AUTO_UPDATE=.*/AUTO_UPDATE=no/' /etc/openflux/openflux.conf 2>/dev/null || echo "AUTO_UPDATE=no" >> /etc/openflux/openflux.conf
-                systemctl stop openflux-update.timer 2>/dev/null || true
-                systemctl disable openflux-update.timer 2>/dev/null || true
-                echo "OpenFlux auto-update timer disabled."
-                ;;
-            *)
-                echo "OpenFlux Auto-Update status:"
-                systemctl status openflux-update.timer --no-pager 2>/dev/null || echo "Timer is not active."
-                echo "Usage: openflux-mgr autoupdate {on|off}"
-                ;;
-        esac
-        ;;
-    config)
-        ${EDITOR:-nano} /etc/openflux/openflux.conf
-        echo "Reloading systemd and restarting openflux service..."
-        systemctl daemon-reload
-        systemctl restart openflux
-        systemctl status openflux --no-pager
-        ;;
-    uninstall)
-        echo "Uninstalling OpenFlux..."
-        systemctl stop openflux-update.timer 2>/dev/null || true
-        systemctl disable openflux-update.timer 2>/dev/null || true
-        rm -f /etc/systemd/system/openflux-update.timer
-        rm -f /etc/systemd/system/openflux-update.service
-        rm -f /usr/local/bin/openflux-update
-        systemctl stop openflux 2>/dev/null || true
-        systemctl disable openflux 2>/dev/null || true
-        rm -f /etc/systemd/system/openflux.service
-        systemctl daemon-reload
-        /sbin/iptables -D OUTPUT -p tcp --tcp-flags RST RST -j DROP 2>/dev/null || true
-        rm -f /etc/sysctl.d/99-openflux.conf
-        rm -f /usr/local/bin/openflux
-        rm -rf /etc/openflux
-        rm -f /usr/local/bin/openflux-mgr
-        echo "OpenFlux has been completely uninstalled."
-        ;;
-    *)
-        echo "OpenFlux Exit Node Manager"
-        echo "Usage: openflux-mgr {status|logs|restart|start|stop|update|autoupdate|config|uninstall}"
-        ;;
-esac
-`
-	_ = os.WriteFile("/usr/local/bin/openflux-mgr", []byte(mgrContent), 0755)
-	run("chmod", "+x", "/usr/local/bin/openflux-mgr")
-}
-
-func cleanOpenFluxURL(transport, rawURL string) (string, error) {
-	rawURL = strings.TrimSpace(rawURL)
-	if rawURL == "" {
-		return "", fmt.Errorf("URL cannot be empty")
-	}
-
-	switch transport {
-	case "yandex", "vyandex":
-		// Case 1: Raw document ID pasted directly
-		if !strings.Contains(rawURL, "/") && len(rawURL) >= 8 {
-			return fmt.Sprintf("https://docs.yandex.ru/edit/d/%s?from_public=1", rawURL), nil
-		}
-
-		// Case 2: URL containing /d/<DOC_ID>
-		re := regexp.MustCompile(`/d/([a-zA-Z0-9_\-\.]+)`)
-		match := re.FindStringSubmatch(rawURL)
-		if len(match) > 1 {
-			docID := match[1]
-			return fmt.Sprintf("https://docs.yandex.ru/edit/d/%s?from_public=1", docID), nil
-		}
-
-		// Case 3: Other Yandex Docs URLs - strip tracking parameters and append from_public=1
-		if strings.Contains(rawURL, "docs.yandex.") || strings.Contains(rawURL, "yandex.") {
-			base := strings.Split(rawURL, "?")[0]
-			return base + "?from_public=1", nil
-		}
-		return rawURL, nil
-
-	case "mailru":
-		base := strings.Split(rawURL, "?")[0]
-		return strings.TrimRight(base, "/"), nil
-
-	default:
-		return rawURL, nil
-	}
-}
-
-func uninstallOpenFlux() {
-	fmt.Println("\n" + T.UninstallingOpenFlux)
-
-	// Stop and disable updater timer and service
-	run("systemctl", "stop", "openflux-update.timer")
-	run("systemctl", "disable", "openflux-update.timer")
-	_ = os.Remove("/etc/systemd/system/openflux-update.timer")
-	_ = os.Remove("/etc/systemd/system/openflux-update.service")
-	_ = os.Remove("/usr/local/bin/openflux-update")
-
-	// Stop and disable systemd service
-	run("systemctl", "stop", "openflux")
-	run("systemctl", "disable", "openflux")
-	_ = os.Remove("/etc/systemd/system/openflux.service")
-	run("systemctl", "daemon-reload")
-
-	// Remove kernel RST drop iptables rule
-	run("bash", "-c", "/sbin/iptables -D OUTPUT -p tcp --tcp-flags RST RST -j DROP 2>/dev/null || true")
-
-	// Remove sysctl config
-	_ = os.Remove("/etc/sysctl.d/99-openflux.conf")
-
-	// Remove binaries and scripts
-	_ = os.Remove("/usr/local/bin/openflux")
-	_ = os.Remove("/usr/local/bin/openflux-mgr")
-
-	// Remove configuration directory
-	_ = os.RemoveAll("/etc/openflux")
-
-	fmt.Println(T.OpenFluxUninstalled)
 }
 

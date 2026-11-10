@@ -494,8 +494,10 @@ func main() {
 		configureUFW(sshPort)
 	}
 
-	// Синхронизация времени для надежной работы TLS/VLESS/Reality
-	run("systemctl", "enable", "--now", "systemd-timesyncd")
+	if install3xUI || installTelemtChoice {
+		// Синхронизация времени для надежной работы TLS/VLESS/Reality
+		_ = exec.Command("systemctl", "enable", "--now", "systemd-timesyncd").Run()
+	}
 
 	if installFail2BanChoice {
 		fmt.Println("\n" + T.InstallingF2B)
@@ -626,6 +628,13 @@ func applySSHPort(port string) {
 		if err := exec.Command("systemctl", "restart", "sshd").Run(); err != nil {
 			run("systemctl", "restart", "ssh")
 		}
+	}
+
+	// Если на сервере уже активен UFW, автоматически открываем новый порт SSH во избежание lockout
+	ufwStatus, err := exec.Command("ufw", "status").Output()
+	if err == nil && strings.Contains(string(ufwStatus), "Status: active") {
+		run("ufw", "allow", port+"/tcp", "comment", "SSH")
+		run("ufw", "reload")
 	}
 }
 

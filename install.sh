@@ -13,8 +13,16 @@ if [ "${EUID:-$(id -u)}" -ne 0 ]; then
     exit 1
 fi
 
-# Проверяем наличие curl и ca-certificates
-if ! command -v curl &> /dev/null || ! command -v ca-certificates &> /dev/null; then
+# Проверяем наличие curl и сертификатов (ca-certificates)
+NEED_INSTALL=0
+if ! command -v curl &> /dev/null; then
+    NEED_INSTALL=1
+fi
+if ! dpkg -s ca-certificates &> /dev/null && [ ! -d /etc/ssl/certs ]; then
+    NEED_INSTALL=1
+fi
+
+if [ "$NEED_INSTALL" -eq 1 ]; then
     echo -e "${GREEN}>>> Installing curl and ca-certificates...${NC}"
     apt-get update -qq && apt-get install -y -qq curl ca-certificates
 fi

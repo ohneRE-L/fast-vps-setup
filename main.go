@@ -602,16 +602,52 @@ func setUlimits() {
 }
 
 func applySSHPort(port string) {
-	cfg, err := os.ReadFile("/etc/ssh/sshd_config")
-	if err == nil {
+	// 1. Если на сервере уже активен UFW, сначала открываем новый порт во избежание lockout
+	ufwStatus, err := exec.Command("ufw", "status").Output()
+	if err == nil && strings.Contains(string(ufwStatus), "Status: active") {
+		run("ufw", "allow", port+"/tcp", "comment", "SSH")
+		run("ufw", "reload")
+	}
+
+	// 2. Записываем порт в drop-in конфиг (и поддерживаем старые системы без Include)
+	_ = os.MkdirAll("/etc/ssh/sshd_config.d", 0755)
+	dropInPath := "/etc/ssh/sshd_config.d/99-port.conf"
+	prevDropIn, prevDropInErr := os.ReadFile(dropInPath)
+	if err := os.WriteFile(dropInPath, []byte("Port "+port+"\n"), 0644); err != nil {
+		log.Printf("⚠️ Failed to write %s: %v\n", dropInPath, err)
+		return
+	}
+
+	var prevMainCfg []byte
+	mainCfgModified := false
+	if cfg, err := os.ReadFile("/etc/ssh/sshd_config"); err == nil && !strings.Contains(string(cfg), "sshd_config.d") {
+		prevMainCfg = cfg
 		re := regexp.MustCompile(`(?m)^#?Port\s+\d+`)
 		newCfg := re.ReplaceAll(cfg, []byte("Port "+port))
 		if !strings.Contains(string(newCfg), "Port "+port) {
 			newCfg = append(newCfg, []byte("\nPort "+port+"\n")...)
 		}
-		_ = os.WriteFile("/etc/ssh/sshd_config", newCfg, 0644)
+		if os.WriteFile("/etc/ssh/sshd_config", newCfg, 0644) == nil {
+			mainCfgModified = true
+		}
 	}
 
+	// 3. Валидируем конфигурацию перед перезапуском демона
+	_ = os.MkdirAll("/run/sshd", 0755)
+	if out, err := exec.Command("sshd", "-t").CombinedOutput(); err != nil {
+		if prevDropInErr == nil {
+			_ = os.WriteFile(dropInPath, prevDropIn, 0644)
+		} else {
+			_ = os.Remove(dropInPath)
+		}
+		if mainCfgModified {
+			_ = os.WriteFile("/etc/ssh/sshd_config", prevMainCfg, 0644)
+		}
+		log.Printf("❌ sshd -t failed, changes rolled back: %v (%s)\n", err, strings.TrimSpace(string(out)))
+		return
+	}
+
+	// 4. Перезапускаем ssh.socket / sshd
 	outActive, _ := exec.Command("systemctl", "is-active", "ssh.socket").Output()
 	outEnabled, _ := exec.Command("systemctl", "is-enabled", "ssh.socket").Output()
 
@@ -628,13 +664,6 @@ func applySSHPort(port string) {
 		if err := exec.Command("systemctl", "restart", "sshd").Run(); err != nil {
 			run("systemctl", "restart", "ssh")
 		}
-	}
-
-	// Если на сервере уже активен UFW, автоматически открываем новый порт SSH во избежание lockout
-	ufwStatus, err := exec.Command("ufw", "status").Output()
-	if err == nil && strings.Contains(string(ufwStatus), "Status: active") {
-		run("ufw", "allow", port+"/tcp", "comment", "SSH")
-		run("ufw", "reload")
 	}
 }
 
@@ -734,21 +763,51 @@ func finalConfig(user, pass, path string) {
 	run("hash", "-r")
 }
 
+func getOptimalTCPBufferMax() int {
+	data, err := os.ReadFile("/proc/meminfo")
+	if err != nil {
+		return 16777216
+	}
+
+	var memTotalKB int64
+	for _, line := range strings.Split(string(data), "\n") {
+		if strings.HasPrefix(line, "MemTotal:") {
+			fields := strings.Fields(line)
+			if len(fields) >= 2 {
+				memTotalKB, _ = strconv.ParseInt(fields[1], 10, 64)
+			}
+			break
+		}
+	}
+
+	memTotalMB := memTotalKB / 1024
+	switch {
+	case memTotalMB > 0 && memTotalMB <= 1024:
+		return 16777216
+	case memTotalMB > 1024 && memTotalMB <= 2048:
+		return 33554432
+	default:
+		return 67108864
+	}
+}
+
 func enableBBR() {
 	run("modprobe", "tcp_bbr")
 	_ = os.MkdirAll("/etc/modules-load.d", 0755)
 	_ = os.WriteFile("/etc/modules-load.d/bbr.conf", []byte("tcp_bbr\n"), 0644)
 
-	sysctlSettings := `# Network BBR, BDP & TFO Optimizations
+	maxBuf := getOptimalTCPBufferMax()
+	sysctlSettings := fmt.Sprintf(`# Network BBR, BDP & TFO Optimizations
 net.core.default_qdisc=fq
 net.ipv4.tcp_congestion_control=bbr
 net.ipv4.tcp_fastopen=3
-net.core.rmem_max=67108864
-net.core.wmem_max=67108864
-net.ipv4.tcp_rmem=4096 87380 67108864
-net.ipv4.tcp_wmem=4096 65536 67108864
+net.core.rmem_max=%d
+net.core.wmem_max=%d
+net.ipv4.tcp_rmem=4096 87380 %d
+net.ipv4.tcp_wmem=4096 65536 %d
 net.ipv4.tcp_mtu_probing=1
-`
+`, maxBuf, maxBuf, maxBuf, maxBuf)
+
 	_ = os.MkdirAll("/etc/sysctl.d", 0755)
 	_ = os.WriteFile("/etc/sysctl.d/99-bbr.conf", []byte(sysctlSettings), 0644)
 	run("sysctl", "--system")
@@ -773,11 +832,16 @@ func setupDNS() {
 }
 
 func getCurrentSSHPort() string {
+	re := regexp.MustCompile(`(?m)^Port\s+(\d+)`)
+	if dropData, err := os.ReadFile("/etc/ssh/sshd_config.d/99-port.conf"); err == nil {
+		if match := re.FindStringSubmatch(string(dropData)); len(match) > 1 {
+			return match[1]
+		}
+	}
 	data, err := os.ReadFile("/etc/ssh/sshd_config")
 	if err != nil {
 		return "22"
 	}
-	re := regexp.MustCompile(`(?m)^Port\s+(\d+)`)
 	match := re.FindStringSubmatch(string(data))
 	if len(match) > 1 {
 		return match[1]

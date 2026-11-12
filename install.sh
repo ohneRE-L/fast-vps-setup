@@ -48,13 +48,14 @@ echo -e "${GREEN}>>> Downloading VPS Shielder (${BIN_NAME})...${NC}"
 RELEASE_TAG="${FAST_VPS_VERSION:-latest}"
 REPO="ohneRE-L/fast-vps-setup"
 TARGET="/usr/local/bin/setup_server"
-TMP_BIN="/tmp/${BIN_NAME}.$$"
-TMP_SUMS="/tmp/checksums.$$.txt"
+TMP_DIR="$(mktemp -d -t fast-vps-setup.XXXXXXXXXX)"
+TMP_BIN="${TMP_DIR}/${BIN_NAME}"
+TMP_SUMS="${TMP_DIR}/checksums.txt"
 
 cleanup() {
-    rm -f "$TMP_BIN" "$TMP_SUMS"
+    rm -rf "$TMP_DIR"
 }
-trap cleanup EXIT
+trap cleanup EXIT INT TERM
 
 # Формирование URL для скачивания из GitHub Releases
 if [ "$RELEASE_TAG" = "latest" ]; then

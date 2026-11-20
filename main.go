@@ -533,12 +533,28 @@ func hasZram() bool {
 	return err == nil && strings.Contains(string(data), "zram")
 }
 
+func applySwappiness(val int) {
+	_ = os.MkdirAll("/etc/sysctl.d", 0755)
+	content := fmt.Sprintf("vm.swappiness=%d\n", val)
+	if err := os.WriteFile("/etc/sysctl.d/99-swap.conf", []byte(content), 0644); err != nil {
+		log.Printf("⚠️ Failed to write /etc/sysctl.d/99-swap.conf: %v\n", err)
+	} else {
+		_ = run("sysctl", "-w", fmt.Sprintf("vm.swappiness=%d", val))
+	}
+}
+
 func setupSwap() {
+	if hasZram() {
+		return // Do not override swappiness or add disk swap on zram-enabled systems
+	}
+
 	out, _ := exec.Command("swapon", "--show").Output()
 	if strings.TrimSpace(string(out)) != "" {
+		applySwappiness(10)
 		return
 	}
 	if _, err := os.Stat("/swapfile"); err == nil {
+		applySwappiness(10)
 		return
 	}
 
@@ -576,14 +592,7 @@ func setupSwap() {
 		}
 	}
 
-	if !hasZram() {
-		_ = os.MkdirAll("/etc/sysctl.d", 0755)
-		if err := os.WriteFile("/etc/sysctl.d/99-swap.conf", []byte("vm.swappiness=10\n"), 0644); err != nil {
-			log.Printf("⚠️ Failed to write /etc/sysctl.d/99-swap.conf: %v\n", err)
-		} else {
-			_ = run("sysctl", "-w", "vm.swappiness=10")
-		}
-	}
+	applySwappiness(10)
 }
 
 func setUlimits() {

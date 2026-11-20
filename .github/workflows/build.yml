@@ -26,6 +26,7 @@ jobs:
       - name: Run Linters and Tests
         run: |
           go vet ./...
+          go test -v ./...
           shellcheck install.sh
 
       - name: Build Binaries

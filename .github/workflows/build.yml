@@ -38,6 +38,60 @@ jobs:
           GOOS=linux GOARCH=arm64 go build -trimpath -ldflags="-s -w" -o setup_server_arm64 main.go
           sha256sum setup_server setup_server_amd64 setup_server_arm64 > checksums.txt
 
+      - name: Live Smoke Test (SSH Port, ssh.socket, cloud-init)
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq openssh-server
+          
+          # Emulate 50-cloud-init.conf
+          sudo mkdir -p /etc/ssh/sshd_config.d
+          echo "PasswordAuthentication yes" | sudo tee /etc/ssh/sshd_config.d/50-cloud-init.conf
+          
+          # Ensure ssh service or socket is active
+          sudo systemctl restart ssh || sudo systemctl restart ssh.socket || true
+          
+          # Generate a test ED25519 key
+          TEST_KEY=$(ssh-keygen -q -N "" -t ed25519 -f /tmp/test_key && cat /tmp/test_key.pub)
+          
+          # Run setup_server non-interactively (choice 2=English, menu 1,2=change port & ssh key, port 2222, test key)
+          printf "2\n1,2\n2222\n%s\n" "$TEST_KEY" | sudo ./setup_server
+          
+          echo "=== SSHD -T CONFIGURATION ==="
+          sudo sshd -T | grep -E "^(port|passwordauthentication) "
+          
+          echo "=== LISTENING SOCKETS ==="
+          sudo ss -tlnp
+          
+          # Check ssh.socket and ssh service status
+          sudo systemctl status ssh.socket --no-pager || true
+          sudo systemctl status ssh --no-pager || true
+          
+          # Assertions
+          # 1. Port 22 must NOT be listening
+          if sudo ss -tlnp '( sport = :22 )' | grep -q ":22"; then
+            echo "ERROR: Port 22 is still listening!"
+            exit 1
+          fi
+          
+          # 2. Port 2222 MUST be listening
+          if ! sudo ss -tlnp '( sport = :2222 )' | grep -q ":2222"; then
+            echo "ERROR: Port 2222 is not listening!"
+            exit 1
+          fi
+          
+          # 3. PasswordAuthentication must be no
+          if ! sudo sshd -T | grep -q "^passwordauthentication no"; then
+            echo "ERROR: PasswordAuthentication is not 'no'!"
+            exit 1
+          fi
+          
+          # 4. Port in sshd -T must be 2222
+          if ! sudo sshd -T | grep -q "^port 2222"; then
+            echo "ERROR: sshd -T does not contain port 2222!"
+            exit 1
+          fi
+          
+          echo "SUCCESS: Live integration smoke test passed on real Ubuntu with systemd!"
+
       - name: Publish Release Assets
         uses: softprops/action-gh-release@v2
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')

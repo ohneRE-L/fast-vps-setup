@@ -528,12 +528,14 @@ func installBasicUtilities() {
 	run("apt-get", "install", "-y", "curl", "wget", "htop", "iftop", "iotop", "net-tools", "dnsutils", "jq", "socat", "tar", "unzip", "ca-certificates")
 }
 
+func hasZram() bool {
+	data, err := os.ReadFile("/proc/swaps")
+	return err == nil && strings.Contains(string(data), "zram")
+}
+
 func setupSwap() {
 	out, _ := exec.Command("swapon", "--show").Output()
 	if strings.TrimSpace(string(out)) != "" {
-		_ = os.MkdirAll("/etc/sysctl.d", 0755)
-		_ = os.WriteFile("/etc/sysctl.d/99-swap.conf", []byte("vm.swappiness=10\n"), 0644)
-		run("sysctl", "-w", "vm.swappiness=10")
 		return
 	}
 	if _, err := os.Stat("/swapfile"); err == nil {
@@ -542,30 +544,46 @@ func setupSwap() {
 
 	cmd := exec.Command("fallocate", "-l", "2G", "/swapfile")
 	if err := cmd.Run(); err != nil {
-		run("dd", "if=/dev/zero", "of=/swapfile", "bs=1M", "count=2048", "status=none")
+		_ = os.Remove("/swapfile")
+		if err := run("dd", "if=/dev/zero", "of=/swapfile", "bs=1M", "count=2048", "status=none"); err != nil {
+			log.Printf("⚠️ dd failed to create /swapfile: %v\n", err)
+			_ = os.Remove("/swapfile")
+			return
+		}
 	}
-	run("chmod", "600", "/swapfile")
+	_ = run("chmod", "600", "/swapfile")
 	if err := exec.Command("mkswap", "/swapfile").Run(); err != nil {
 		log.Printf("⚠️ mkswap failed: %v\n", err)
+		_ = os.Remove("/swapfile")
 		return
 	}
 	if err := exec.Command("swapon", "/swapfile").Run(); err != nil {
 		log.Printf("⚠️ swapon failed: %v\n", err)
+		_ = os.Remove("/swapfile")
 		return
 	}
 
 	fstab, err := os.ReadFile("/etc/fstab")
 	if err == nil && !strings.Contains(string(fstab), "/swapfile") {
 		f, err := os.OpenFile("/etc/fstab", os.O_APPEND|os.O_WRONLY, 0644)
-		if err == nil {
-			_, _ = f.WriteString("\n/swapfile none swap sw 0 0\n")
+		if err != nil {
+			log.Printf("⚠️ Failed to open /etc/fstab for writing: %v\n", err)
+		} else {
+			if _, err := f.WriteString("\n/swapfile none swap sw 0 0\n"); err != nil {
+				log.Printf("⚠️ Failed to write to /etc/fstab: %v\n", err)
+			}
 			_ = f.Close()
 		}
 	}
 
-	_ = os.MkdirAll("/etc/sysctl.d", 0755)
-	_ = os.WriteFile("/etc/sysctl.d/99-swap.conf", []byte("vm.swappiness=10\n"), 0644)
-	run("sysctl", "-w", "vm.swappiness=10")
+	if !hasZram() {
+		_ = os.MkdirAll("/etc/sysctl.d", 0755)
+		if err := os.WriteFile("/etc/sysctl.d/99-swap.conf", []byte("vm.swappiness=10\n"), 0644); err != nil {
+			log.Printf("⚠️ Failed to write /etc/sysctl.d/99-swap.conf: %v\n", err)
+		} else {
+			_ = run("sysctl", "-w", "vm.swappiness=10")
+		}
+	}
 }
 
 func setUlimits() {
@@ -612,15 +630,36 @@ func applySSHPort(port string) {
 
 	var prevMainCfg []byte
 	mainCfgModified := false
-	if cfg, err := os.ReadFile("/etc/ssh/sshd_config"); err == nil && !strings.Contains(string(cfg), "sshd_config.d") {
+	if cfg, err := os.ReadFile("/etc/ssh/sshd_config"); err == nil {
 		prevMainCfg = cfg
-		re := regexp.MustCompile(`(?m)^#?Port\s+\d+`)
-		newCfg := re.ReplaceAll(cfg, []byte("Port "+port))
-		if !strings.Contains(string(newCfg), "Port "+port) {
-			newCfg = append(newCfg, []byte("\nPort "+port+"\n")...)
-		}
-		if os.WriteFile("/etc/ssh/sshd_config", newCfg, 0644) == nil {
-			mainCfgModified = true
+		cfgStr := string(cfg)
+		hasInclude := strings.Contains(cfgStr, "sshd_config.d")
+
+		if hasInclude {
+			// Комментируем активные директивы Port, чтобы OpenSSH не слушал оба порта
+			reActivePort := regexp.MustCompile(`(?m)^[\t ]*Port\b.*$`)
+			if reActivePort.Match(cfg) {
+				newCfg := reActivePort.ReplaceAllStringFunc(cfgStr, func(line string) string {
+					return "#" + line
+				})
+				if err := os.WriteFile("/etc/ssh/sshd_config", []byte(newCfg), 0644); err != nil {
+					log.Printf("⚠️ Failed to comment out old Port in /etc/ssh/sshd_config: %v\n", err)
+				} else {
+					mainCfgModified = true
+				}
+			}
+		} else {
+			// Старые системы без Include: меняем директиву прямо в основном конфиге
+			re := regexp.MustCompile(`(?m)^#?Port\s+\d+`)
+			newCfg := re.ReplaceAll(cfg, []byte("Port "+port))
+			if !strings.Contains(string(newCfg), "Port "+port) {
+				newCfg = append(newCfg, []byte("\nPort "+port+"\n")...)
+			}
+			if err := os.WriteFile("/etc/ssh/sshd_config", newCfg, 0644); err != nil {
+				log.Printf("⚠️ Failed to write /etc/ssh/sshd_config: %v\n", err)
+			} else {
+				mainCfgModified = true
+			}
 		}
 	}
 
@@ -708,18 +747,27 @@ net.netfilter.nf_conntrack_tcp_timeout_fin_wait = 30
 }
 
 func configureUFW(sshPort string) {
-	run("apt-get", "install", "-y", "ufw")
-	run("ufw", "default", "deny", "incoming")
-	run("ufw", "default", "allow", "outgoing")
-	run("ufw", "allow", sshPort+"/tcp", "comment", "SSH")
-	run("ufw", "allow", "443", "comment", "VPN")
-	run("ufw", "allow", "3/tcp", "comment", "PANEL")
-	run("ufw", "allow", "10443/tcp", "comment", "SUBSCRIPTION")
-	run("ufw", "allow", "8443/tcp")
-	run("ufw", "deny", "9000", "comment", "nginx")
-	run("ufw", "deny", "40000", "comment", "warp")
-	run("ufw", "--force", "enable")
-	run("ufw", "reload")
+	if err := run("apt-get", "install", "-y", "ufw"); err != nil {
+		log.Printf("⚠️ Failed to install ufw: %v\n", err)
+		return
+	}
+	_ = run("ufw", "default", "deny", "incoming")
+	_ = run("ufw", "default", "allow", "outgoing")
+
+	// Критично: открываем SSH-порт перед включением фаервола во избежание lockout
+	if err := run("ufw", "allow", sshPort+"/tcp", "comment", "SSH"); err != nil {
+		log.Printf("❌ Failed to allow SSH port %s in UFW: %v. Aborting UFW activation to prevent lockout!\n", sshPort, err)
+		return
+	}
+
+	_ = run("ufw", "allow", "443", "comment", "VPN")
+	_ = run("ufw", "allow", "3/tcp", "comment", "PANEL")
+	_ = run("ufw", "allow", "10443/tcp", "comment", "SUBSCRIPTION")
+	_ = run("ufw", "allow", "8443/tcp")
+	_ = run("ufw", "deny", "9000", "comment", "nginx")
+	_ = run("ufw", "deny", "40000", "comment", "warp")
+	_ = run("ufw", "--force", "enable")
+	_ = run("ufw", "reload")
 }
 
 func installTelemt() {
@@ -980,14 +1028,27 @@ func setupSSHKey(key string) {
 		if !strings.Contains(string(newCfg), "PasswordAuthentication no") {
 			newCfg = append(newCfg, []byte("\nPasswordAuthentication no\n")...)
 		}
-		if os.WriteFile("/etc/ssh/sshd_config", newCfg, 0644) == nil {
+		if err := os.WriteFile("/etc/ssh/sshd_config", newCfg, 0644); err != nil {
+			log.Printf("⚠️ Failed to write /etc/ssh/sshd_config: %v\n", err)
+		} else {
 			mainCfgModified = true
 		}
 	}
 
 	// 3. Валидируем конфигурацию через sshd -t перед перезапуском демона
 	_ = os.MkdirAll("/run/sshd", 0755)
-	if out, err := exec.Command("sshd", "-t").CombinedOutput(); err != nil {
+	out, valErr := exec.Command("sshd", "-t").CombinedOutput()
+	if valErr != nil && strings.Contains(string(out), "KbdInteractiveAuthentication") {
+		// Fallback для Debian 11 / OpenSSH < 8.7 (опция KbdInteractiveAuthentication не поддерживается)
+		log.Printf("⚠️ sshd -t rejected KbdInteractiveAuthentication, retrying with ChallengeResponseAuthentication...\n")
+		dropinCfgFallback := "PasswordAuthentication no\nChallengeResponseAuthentication no\n"
+		if err := os.WriteFile(dropinPath, []byte(dropinCfgFallback), 0644); err != nil {
+			log.Printf("⚠️ Failed to rewrite %s: %v\n", dropinPath, err)
+		}
+		out, valErr = exec.Command("sshd", "-t").CombinedOutput()
+	}
+
+	if valErr != nil {
 		if prevDropinErr == nil {
 			_ = os.WriteFile(dropinPath, prevDropin, 0644)
 		} else {
@@ -996,7 +1057,7 @@ func setupSSHKey(key string) {
 		if mainCfgModified {
 			_ = os.WriteFile("/etc/ssh/sshd_config", prevMainCfg, 0644)
 		}
-		log.Printf("❌ sshd -t failed, changes rolled back: %v (%s)\n", err, strings.TrimSpace(string(out)))
+		log.Printf("❌ sshd -t failed, changes rolled back: %v (%s)\n", valErr, strings.TrimSpace(string(out)))
 		return
 	}
 

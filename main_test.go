@@ -149,16 +149,29 @@ func TestHasZramDetection(t *testing.T) {
 	contentFile := "Filename\t\t\t\tType\t\tSize\t\tUsed\t\tPriority\n/swapfile                               file\t\t2097148\t\t0\t\t-2\n"
 	_ = os.WriteFile(swapsWithoutZram, []byte(contentFile), 0644)
 
-	hasZramCustom := func(path string) bool {
-		data, err := os.ReadFile(path)
-		return err == nil && strings.Contains(string(data), "zram")
+	swapsNonExistent := filepath.Join(tmpDir, "proc_swaps_missing")
+
+	detectZram := func(path string, swaponOut string, swaponErr error) bool {
+		if data, err := os.ReadFile(path); err == nil {
+			return strings.Contains(string(data), "zram")
+		}
+		if swaponErr == nil {
+			return strings.Contains(swaponOut, "zram")
+		}
+		return false
 	}
 
-	if !hasZramCustom(swapsWithZram) {
+	if !detectZram(swapsWithZram, "", nil) {
 		t.Fatalf("failed to detect zram in %s", swapsWithZram)
 	}
-	if hasZramCustom(swapsWithoutZram) {
-		t.Fatalf("falsely detected zram in %s", swapsWithoutZram)
+	if detectZram(swapsWithoutZram, "fallback /dev/zram0 partition", nil) {
+		t.Fatalf("falsely used fallback when /proc/swaps was readable")
+	}
+	if !detectZram(swapsNonExistent, "/dev/zram0 partition 2097148 0 100", nil) {
+		t.Fatalf("failed fallback to swapon output when /proc/swaps was missing")
+	}
+	if detectZram(swapsNonExistent, "", os.ErrNotExist) {
+		t.Fatalf("falsely detected zram when both procfs and swapon failed")
 	}
 }
 
@@ -197,6 +210,17 @@ func TestSetupSwapDecisionMatrix(t *testing.T) {
 			hasZram:           true,
 			swaponOutput:      "/dev/zram0 partition 2097148 0 100",
 			swapfileExists:    false,
+			expectEarlyReturn: true,
+			expectSwappiness:  false,
+			expectCreateSwap:  false,
+		},
+		{
+			name:              "zram is active and dormant /swapfile exists on disk -> exit immediately without touching swappiness or /swapfile",
+			hasZram:           true,
+			swaponOutput:      "/dev/zram0 partition 2097148 0 100",
+			swapfileExists:    true,
+			isDir:             false,
+			swaponExistingOk:  true,
 			expectEarlyReturn: true,
 			expectSwappiness:  false,
 			expectCreateSwap:  false,

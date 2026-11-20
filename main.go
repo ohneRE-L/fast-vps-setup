@@ -529,11 +529,11 @@ func installBasicUtilities() {
 }
 
 func hasZram() bool {
-	if data, err := os.ReadFile("/proc/swaps"); err == nil && strings.Contains(string(data), "zram") {
-		return true
+	if data, err := os.ReadFile("/proc/swaps"); err == nil {
+		return strings.Contains(string(data), "zram")
 	}
-	if out, err := exec.Command("swapon", "--show").Output(); err == nil && strings.Contains(string(out), "zram") {
-		return true
+	if out, err := exec.Command("swapon", "--show").Output(); err == nil {
+		return strings.Contains(string(out), "zram")
 	}
 	return false
 }

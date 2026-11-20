@@ -18,7 +18,7 @@ NEED_INSTALL=0
 if ! command -v curl &> /dev/null; then
     NEED_INSTALL=1
 fi
-if ! dpkg -s ca-certificates &> /dev/null && [ ! -d /etc/ssl/certs ]; then
+if ! dpkg -s ca-certificates &> /dev/null || [ ! -f /etc/ssl/certs/ca-certificates.crt ]; then
     NEED_INSTALL=1
 fi
 
@@ -71,24 +71,29 @@ if ! curl -fsSL -L -o "$TMP_BIN" "$DOWNLOAD_URL"; then
     exit 1
 fi
 
-# Проверка контрольной суммы (если checksums.txt опубликован в релизе)
-if curl -fsSL -L -o "$TMP_SUMS" "$CHECKSUM_URL" 2>/dev/null; then
-    EXPECTED_HASH=$(grep -E "${BIN_NAME}\$" "$TMP_SUMS" | awk '{print $1}' | head -n 1 || true)
-    if [ -n "$EXPECTED_HASH" ]; then
-        ACTUAL_HASH=$(sha256sum "$TMP_BIN" | awk '{print $1}')
-        if [ "$EXPECTED_HASH" != "$ACTUAL_HASH" ]; then
-            echo -e "${RED}Error: Checksum mismatch for $BIN_NAME!${NC}" >&2
-            echo -e "${RED}Expected: $EXPECTED_HASH${NC}" >&2
-            echo -e "${RED}Got:      $ACTUAL_HASH${NC}" >&2
-            exit 1
-        fi
-        echo -e "${GREEN}>>> Checksum verified successfully.${NC}"
-    fi
+# Проверка контрольной суммы (fail-closed: обязательна для безопасности)
+if ! curl -fsSL -L -o "$TMP_SUMS" "$CHECKSUM_URL"; then
+    echo -e "${RED}Error: Failed to download checksums.txt from GitHub Releases.${NC}" >&2
+    exit 1
 fi
 
-# Атомарная установка и права на запуск
-mv "$TMP_BIN" "$TARGET"
-chmod +x "$TARGET"
+EXPECTED_HASH=$(grep -E "[[:space:]]${BIN_NAME}\$" "$TMP_SUMS" | awk '{print $1}' | head -n 1 || true)
+if [ -z "$EXPECTED_HASH" ]; then
+    echo -e "${RED}Error: Checksum for $BIN_NAME not found in checksums.txt!${NC}" >&2
+    exit 1
+fi
+
+ACTUAL_HASH=$(sha256sum "$TMP_BIN" | awk '{print $1}')
+if [ "$EXPECTED_HASH" != "$ACTUAL_HASH" ]; then
+    echo -e "${RED}Error: Checksum mismatch for $BIN_NAME!${NC}" >&2
+    echo -e "${RED}Expected: $EXPECTED_HASH${NC}" >&2
+    echo -e "${RED}Got:      $ACTUAL_HASH${NC}" >&2
+    exit 1
+fi
+echo -e "${GREEN}>>> Checksum verified successfully.${NC}"
+
+# Установка бинарника с правами на запуск
+install -m 0755 "$TMP_BIN" "$TARGET"
 
 echo -e "${GREEN}>>> Starting setup_server...${NC}\n"
 exec "$TARGET"

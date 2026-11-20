@@ -19,19 +19,10 @@ import (
 
 type Messages struct {
 	LangSelect              string
-	RootRequired            string
-	DebianOnly              string
 	SSHPortPrompt           string
 	SSHPortEmpty            string
 	InvalidSSHPort          string
 	SSHPortConflict         string
-	ChangeSSH               string
-	SetupUFW                string
-	Install3xUI             string
-	InstallTelemt           string
-	InstallWarp             string
-	EnableBBR               string
-	InstallF2B              string
 	SystemUpdate            string
 	InstallingTools         string
 	Ulimits                 string
@@ -51,9 +42,7 @@ type Messages struct {
 	Password                string
 	SSHPort                 string
 	XUICommand              string
-	SetupDNS                string
 	InstallingDNS           string
-	SetupSSHKey             string
 	EnterSSHKey             string
 	InstallingSSHKey        string
 	SSHKeyEmpty             string
@@ -80,19 +69,10 @@ type Messages struct {
 
 var ruMsgs = Messages{
 	LangSelect:       "👉 Выберите язык / Select language (1: RU, 2: EN): ",
-	RootRequired:     "Ошибка: запустите скрипт от имени root (sudo)",
-	DebianOnly:       "Ошибка: Этот скрипт предназначен только для систем Debian / Ubuntu!",
 	SSHPortPrompt:    "👉 Введите новый порт для SSH (например, 9049): ",
 	SSHPortEmpty:     "Порт не может быть пустым",
 	InvalidSSHPort:   "Некорректный номер порта. Введите число от 1 до 65535.",
 	SSHPortConflict:  "Этот порт зарезервирован для системных служб или прокси. Выберите другой порт.",
-	ChangeSSH:        "Изменить порт SSH?",
-	SetupUFW:         "Настроить Firewall (UFW)?",
-	Install3xUI:      "Установить 3x-ui?",
-	InstallTelemt:    "Установить telemt?",
-	InstallWarp:      "Установить WARP watchdog?",
-	EnableBBR:        "Включить BBR (ускорение сети)?",
-	InstallF2B:       "Установить Fail2Ban (защита от брутфорса)?",
 	SystemUpdate:     "[1/6] 🛠 Обновление системы...",
 	InstallingTools:  "[1.5/6] 🧰 Установка базовых сетевых утилит...",
 	Ulimits:          "[2/6] 🚀 Настройка лимитов...",
@@ -112,9 +92,7 @@ var ruMsgs = Messages{
 	Password:         "🔑 Пароль",
 	SSHPort:          "📡 SSH порт",
 	XUICommand:       "Команда 'x-ui' доступна в консоли.",
-	SetupDNS:         "Настроить DNS (Cloudflare + Google)?",
 	InstallingDNS:    "[3.5/6] 🌐 Настройка DNS (Cloudflare + Google)...",
-	SetupSSHKey:      "Добавить SSH-ключ (и отключить пароли)?",
 	EnterSSHKey:      "👉 Если у вас нет ключа, откройте новый терминал на вашем ПК и введите 'ssh-keygen -t ed25519'.\n👉 Затем скопируйте содержимое файла (обычно ~/.ssh/id_ed25519.pub).\n👉 Введите ваш публичный SSH-ключ:\n",
 	InstallingSSHKey: "[3.7/6] 🔑 Настройка SSH-ключа...",
 	SSHKeyEmpty:      "SSH-ключ не может быть пустым",
@@ -141,19 +119,10 @@ var ruMsgs = Messages{
 
 var enMsgs = Messages{
 	LangSelect:       "👉 Выберите язык / Select language (1: RU, 2: EN): ",
-	RootRequired:     "Error: run the script as root (sudo)",
-	DebianOnly:       "Error: This script is only intended for Debian / Ubuntu systems!",
 	SSHPortPrompt:    "👉 Enter new SSH port (e.g., 9049): ",
 	SSHPortEmpty:     "Port cannot be empty",
 	InvalidSSHPort:   "Invalid port number. Enter a number between 1 and 65535.",
 	SSHPortConflict:  "This port is reserved for system services or proxies. Choose another port.",
-	ChangeSSH:        "Change SSH port?",
-	SetupUFW:         "Configure Firewall (UFW)?",
-	Install3xUI:      "Install 3x-ui?",
-	InstallTelemt:    "Install telemt?",
-	InstallWarp:      "Install WARP watchdog?",
-	EnableBBR:        "Enable BBR (network optimization)?",
-	InstallF2B:       "Install Fail2Ban (brute-force protection)?",
 	SystemUpdate:     "[1/6] 🛠 System update...",
 	InstallingTools:  "[1.5/6] 🧰 Installing essential network utilities...",
 	Ulimits:          "[2/6] 🚀 Setting limits...",
@@ -173,9 +142,7 @@ var enMsgs = Messages{
 	Password:         "🔑 Password",
 	SSHPort:          "📡 SSH Port",
 	XUICommand:       "The 'x-ui' command is available in the console.",
-	SetupDNS:         "Configure DNS (Cloudflare + Google)?",
 	InstallingDNS:    "[3.5/6] 🌐 Configuring DNS (Cloudflare + Google)...",
-	SetupSSHKey:      "Add SSH key (and disable passwords)?",
 	EnterSSHKey:      "👉 If you don't have a key, open a new terminal on your PC and run 'ssh-keygen -t ed25519'.\n👉 Then copy the contents of the file (usually ~/.ssh/id_ed25519.pub).\n👉 Enter your public SSH key:\n",
 	InstallingSSHKey: "[3.7/6] 🔑 Configuring SSH key...",
 	SSHKeyEmpty:      "SSH key cannot be empty",
@@ -456,8 +423,10 @@ func main() {
 		}
 	}
 
-	fmt.Println("\n" + T.Ulimits)
-	setUlimits()
+	if configureUFWChoice || enableBBRChoice || install3xUI || installTelemtChoice || setupSwapChoice || updateSystemChoice {
+		fmt.Println("\n" + T.Ulimits)
+		setUlimits()
+	}
 
 	if setupSwapChoice {
 		fmt.Println("\n" + T.InstallingSwap)
@@ -524,8 +493,10 @@ func main() {
 		setupWarpWatchdog()
 	}
 
-	// Оптимизация conntrack, если модуль активен (UFW, Docker, Wireguard, nat)
-	tuneConntrack()
+	if configureUFWChoice || enableBBRChoice || install3xUI || installTelemtChoice {
+		// Оптимизация conntrack, если модуль активен (UFW, Docker, Wireguard, nat)
+		tuneConntrack()
+	}
 
 	ip := getIP()
 	fmt.Println("\n" + strings.Repeat("=", 50))
@@ -556,6 +527,9 @@ func installBasicUtilities() {
 func setupSwap() {
 	out, _ := exec.Command("swapon", "--show").Output()
 	if strings.TrimSpace(string(out)) != "" {
+		_ = os.MkdirAll("/etc/sysctl.d", 0755)
+		_ = os.WriteFile("/etc/sysctl.d/99-swap.conf", []byte("vm.swappiness=10\n"), 0644)
+		run("sysctl", "-w", "vm.swappiness=10")
 		return
 	}
 	if _, err := os.Stat("/swapfile"); err == nil {
@@ -567,8 +541,14 @@ func setupSwap() {
 		run("dd", "if=/dev/zero", "of=/swapfile", "bs=1M", "count=2048", "status=none")
 	}
 	run("chmod", "600", "/swapfile")
-	run("mkswap", "/swapfile")
-	run("swapon", "/swapfile")
+	if err := exec.Command("mkswap", "/swapfile").Run(); err != nil {
+		log.Printf("⚠️ mkswap failed: %v\n", err)
+		return
+	}
+	if err := exec.Command("swapon", "/swapfile").Run(); err != nil {
+		log.Printf("⚠️ swapon failed: %v\n", err)
+		return
+	}
 
 	fstab, err := os.ReadFile("/etc/fstab")
 	if err == nil && !strings.Contains(string(fstab), "/swapfile") {
@@ -599,7 +579,7 @@ func setUlimits() {
 
 	// Systemd service limits
 	_ = os.MkdirAll("/etc/systemd/system.conf.d", 0755)
-	sysdContent := "[Manager]\nDefaultLimitNOFILE=65535:65535\n"
+	sysdContent := "[Manager]\nDefaultLimitNOFILE=65535:524288\n"
 	_ = os.WriteFile("/etc/systemd/system.conf.d/99-limits.conf", []byte(sysdContent), 0644)
 	run("systemctl", "daemon-reload")
 }
@@ -612,14 +592,15 @@ func applySSHPort(port string) {
 		run("ufw", "reload")
 	}
 
-	// 2. Записываем порт в drop-in конфиг (и поддерживаем старые системы без Include)
+	// 2. Записываем порт в drop-in конфиг (00- для гарантированного приоритета)
 	_ = os.MkdirAll("/etc/ssh/sshd_config.d", 0755)
-	dropInPath := "/etc/ssh/sshd_config.d/99-port.conf"
+	dropInPath := "/etc/ssh/sshd_config.d/00-port.conf"
 	prevDropIn, prevDropInErr := os.ReadFile(dropInPath)
 	if err := os.WriteFile(dropInPath, []byte("Port "+port+"\n"), 0644); err != nil {
 		log.Printf("⚠️ Failed to write %s: %v\n", dropInPath, err)
 		return
 	}
+	_ = os.Remove("/etc/ssh/sshd_config.d/99-port.conf")
 
 	var prevMainCfg []byte
 	mainCfgModified := false
@@ -658,7 +639,7 @@ func applySSHPort(port string) {
 
 	if isSocket {
 		_ = os.MkdirAll("/etc/systemd/system/ssh.socket.d", 0755)
-		data := fmt.Sprintf("[Socket]\nListenStream=\nListenStream=0.0.0.0:%s\nListenStream=[::]:%s\n", port, port)
+		data := fmt.Sprintf("[Socket]\nListenStream=\nListenStream=%s\n", port)
 		_ = os.WriteFile("/etc/systemd/system/ssh.socket.d/listen.conf", []byte(data), 0644)
 		run("systemctl", "daemon-reload")
 		run("systemctl", "restart", "ssh.socket")
@@ -720,7 +701,6 @@ func configureUFW(sshPort string) {
 	run("ufw", "deny", "40000", "comment", "warp")
 	run("ufw", "--force", "enable")
 	run("ufw", "reload")
-	tuneConntrack()
 }
 
 func installTelemt() {
@@ -795,13 +775,14 @@ func finalConfig(user, pass, path string) {
 	time.Sleep(2 * time.Second)
 
 	fullPath := "/" + path + "/"
-	_ = exec.Command("/usr/local/x-ui/x-ui", "setting", "-username", user, "-password", pass, "-port", "3", "-webBasePath", fullPath).Run()
+	if err := exec.Command("/usr/local/x-ui/x-ui", "setting", "-username", user, "-password", pass, "-port", "3", "-webBasePath", fullPath).Run(); err != nil {
+		log.Printf("⚠️ x-ui setting command failed: %v\n", err)
+	}
 
 	_ = os.Remove("/usr/bin/x-ui")
 	_ = exec.Command("ln", "-s", "/usr/local/x-ui/x-ui.sh", "/usr/bin/x-ui").Run()
 
 	run("systemctl", "restart", "x-ui")
-	run("hash", "-r")
 }
 
 func getOptimalTCPBufferMax() int {
@@ -823,9 +804,9 @@ func getOptimalTCPBufferMax() int {
 
 	memTotalMB := memTotalKB / 1024
 	switch {
-	case memTotalMB > 0 && memTotalMB <= 1024:
+	case memTotalMB <= 1024:
 		return 16777216
-	case memTotalMB > 1024 && memTotalMB <= 2048:
+	case memTotalMB <= 2048:
 		return 33554432
 	default:
 		return 67108864
@@ -873,7 +854,7 @@ net.ipv4.tcp_keepalive_probes = 3
 }
 
 func installFail2Ban(sshPort string) {
-	run("apt-get", "install", "-y", "fail2ban")
+	run("apt-get", "install", "-y", "fail2ban", "python3-systemd")
 	_ = os.MkdirAll("/etc/fail2ban/jail.d", 0755)
 	jailConfig := fmt.Sprintf("[sshd]\nenabled = true\nbackend = systemd\nport = %s\nmaxretry = 5\nfindtime = 10m\nbantime = 1h\n", sshPort)
 	_ = os.WriteFile("/etc/fail2ban/jail.d/sshd.local", []byte(jailConfig), 0644)
@@ -891,12 +872,26 @@ func setupDNS() {
 }
 
 func getCurrentSSHPort() string {
-	re := regexp.MustCompile(`(?m)^Port\s+(\d+)`)
-	if dropData, err := os.ReadFile("/etc/ssh/sshd_config.d/99-port.conf"); err == nil {
-		if match := re.FindStringSubmatch(string(dropData)); len(match) > 1 {
+	if out, err := exec.Command("sshd", "-T").Output(); err == nil {
+		reT := regexp.MustCompile(`(?m)^port\s+(\d+)`)
+		if match := reT.FindStringSubmatch(string(out)); len(match) > 1 {
 			return match[1]
 		}
 	}
+
+	re := regexp.MustCompile(`(?m)^Port\s+(\d+)`)
+	dropIns := []string{
+		"/etc/ssh/sshd_config.d/00-port.conf",
+		"/etc/ssh/sshd_config.d/99-port.conf",
+	}
+	for _, p := range dropIns {
+		if dropData, err := os.ReadFile(p); err == nil {
+			if match := re.FindStringSubmatch(string(dropData)); len(match) > 1 {
+				return match[1]
+			}
+		}
+	}
+
 	data, err := os.ReadFile("/etc/ssh/sshd_config")
 	if err != nil {
 		return "22"
@@ -909,30 +904,76 @@ func getCurrentSSHPort() string {
 }
 
 func setupSSHKey(key string) {
-	_ = os.MkdirAll("/root/.ssh", 0700)
-	authKeys, err := os.ReadFile("/root/.ssh/authorized_keys")
-	if err != nil || !strings.Contains(string(authKeys), key) {
-		f, err := os.OpenFile("/root/.ssh/authorized_keys", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
-		if err == nil {
-			_, _ = f.WriteString(key + "\n")
-			_ = f.Close()
-		}
+	key = strings.TrimSpace(key)
+	if key == "" {
+		return
 	}
 
-	// 1. Drop-in config for modern OpenSSH (Ubuntu 22.04+, Debian 12+)
-	_ = os.MkdirAll("/etc/ssh/sshd_config.d", 0755)
-	dropinCfg := "PasswordAuthentication no\nKbdInteractiveAuthentication no\n"
-	_ = os.WriteFile("/etc/ssh/sshd_config.d/99-disable-passwords.conf", []byte(dropinCfg), 0644)
+	if err := os.MkdirAll("/root/.ssh", 0700); err != nil {
+		log.Printf("❌ Failed to create /root/.ssh: %v\n", err)
+		return
+	}
 
-	// 2. Fallback in /etc/ssh/sshd_config for older systems
-	cfg, err := os.ReadFile("/etc/ssh/sshd_config")
-	if err == nil {
+	authKeys, err := os.ReadFile("/root/.ssh/authorized_keys")
+	keyExists := err == nil && strings.Contains(string(authKeys), key)
+
+	if !keyExists {
+		f, err := os.OpenFile("/root/.ssh/authorized_keys", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
+		if err != nil {
+			log.Printf("❌ Failed to open /root/.ssh/authorized_keys: %v\n", err)
+			return
+		}
+		prefix := ""
+		if len(authKeys) > 0 && !strings.HasSuffix(string(authKeys), "\n") {
+			prefix = "\n"
+		}
+		if _, err := f.WriteString(prefix + key + "\n"); err != nil {
+			_ = f.Close()
+			log.Printf("❌ Failed to write to /root/.ssh/authorized_keys: %v. Password auth will NOT be disabled!\n", err)
+			return
+		}
+		_ = f.Close()
+	}
+
+	// 1. Drop-in config для OpenSSH (00- для приоритета над 50-cloud-init.conf)
+	_ = os.MkdirAll("/etc/ssh/sshd_config.d", 0755)
+	dropinPath := "/etc/ssh/sshd_config.d/00-disable-passwords.conf"
+	prevDropin, prevDropinErr := os.ReadFile(dropinPath)
+	dropinCfg := "PasswordAuthentication no\nKbdInteractiveAuthentication no\n"
+	if err := os.WriteFile(dropinPath, []byte(dropinCfg), 0644); err != nil {
+		log.Printf("⚠️ Failed to write %s: %v\n", dropinPath, err)
+		return
+	}
+	_ = os.Remove("/etc/ssh/sshd_config.d/99-disable-passwords.conf")
+
+	// 2. Fallback для старых OpenSSH без Include
+	var prevMainCfg []byte
+	mainCfgModified := false
+	if cfg, err := os.ReadFile("/etc/ssh/sshd_config"); err == nil && !strings.Contains(string(cfg), "sshd_config.d") {
+		prevMainCfg = cfg
 		re := regexp.MustCompile(`(?m)^#?PasswordAuthentication\s+(yes|no)`)
 		newCfg := re.ReplaceAll(cfg, []byte("PasswordAuthentication no"))
 		if !strings.Contains(string(newCfg), "PasswordAuthentication no") {
 			newCfg = append(newCfg, []byte("\nPasswordAuthentication no\n")...)
 		}
-		_ = os.WriteFile("/etc/ssh/sshd_config", newCfg, 0644)
+		if os.WriteFile("/etc/ssh/sshd_config", newCfg, 0644) == nil {
+			mainCfgModified = true
+		}
+	}
+
+	// 3. Валидируем конфигурацию через sshd -t перед перезапуском демона
+	_ = os.MkdirAll("/run/sshd", 0755)
+	if out, err := exec.Command("sshd", "-t").CombinedOutput(); err != nil {
+		if prevDropinErr == nil {
+			_ = os.WriteFile(dropinPath, prevDropin, 0644)
+		} else {
+			_ = os.Remove(dropinPath)
+		}
+		if mainCfgModified {
+			_ = os.WriteFile("/etc/ssh/sshd_config", prevMainCfg, 0644)
+		}
+		log.Printf("❌ sshd -t failed, changes rolled back: %v (%s)\n", err, strings.TrimSpace(string(out)))
+		return
 	}
 
 	if err := exec.Command("systemctl", "restart", "sshd").Run(); err != nil {

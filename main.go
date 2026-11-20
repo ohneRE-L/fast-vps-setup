@@ -543,6 +543,21 @@ func applySwappiness(val int) {
 	}
 }
 
+func ensureFstabSwap() {
+	fstab, err := os.ReadFile("/etc/fstab")
+	if err == nil && !strings.Contains(string(fstab), "/swapfile") {
+		f, err := os.OpenFile("/etc/fstab", os.O_APPEND|os.O_WRONLY, 0644)
+		if err != nil {
+			log.Printf("⚠️ Failed to open /etc/fstab for writing: %v\n", err)
+		} else {
+			if _, err := f.WriteString("\n/swapfile none swap sw 0 0\n"); err != nil {
+				log.Printf("⚠️ Failed to write to /etc/fstab: %v\n", err)
+			}
+			_ = f.Close()
+		}
+	}
+}
+
 func setupSwap() {
 	if hasZram() {
 		return // Do not override swappiness or add disk swap on zram-enabled systems
@@ -554,8 +569,14 @@ func setupSwap() {
 		return
 	}
 	if _, err := os.Stat("/swapfile"); err == nil {
-		applySwappiness(10)
-		return
+		if err := exec.Command("swapon", "/swapfile").Run(); err != nil {
+			log.Printf("⚠️ Existing /swapfile cannot be activated (%v), recreating...\n", err)
+			_ = os.Remove("/swapfile")
+		} else {
+			ensureFstabSwap()
+			applySwappiness(10)
+			return
+		}
 	}
 
 	cmd := exec.Command("fallocate", "-l", "2G", "/swapfile")
@@ -579,19 +600,7 @@ func setupSwap() {
 		return
 	}
 
-	fstab, err := os.ReadFile("/etc/fstab")
-	if err == nil && !strings.Contains(string(fstab), "/swapfile") {
-		f, err := os.OpenFile("/etc/fstab", os.O_APPEND|os.O_WRONLY, 0644)
-		if err != nil {
-			log.Printf("⚠️ Failed to open /etc/fstab for writing: %v\n", err)
-		} else {
-			if _, err := f.WriteString("\n/swapfile none swap sw 0 0\n"); err != nil {
-				log.Printf("⚠️ Failed to write to /etc/fstab: %v\n", err)
-			}
-			_ = f.Close()
-		}
-	}
-
+	ensureFstabSwap()
 	applySwappiness(10)
 }
 

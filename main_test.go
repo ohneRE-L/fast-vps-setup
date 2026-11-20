@@ -186,6 +186,7 @@ func TestSetupSwapDecisionMatrix(t *testing.T) {
 		hasZram           bool
 		swaponOutput      string
 		swapfileExists    bool
+		swaponExistingOk  bool
 		expectEarlyReturn bool
 		expectSwappiness  bool
 		expectCreateSwap  bool
@@ -204,15 +205,37 @@ func TestSetupSwapDecisionMatrix(t *testing.T) {
 			hasZram:           false,
 			swaponOutput:      "/swapfile file 1048576 0 -2",
 			swapfileExists:    true,
+			swaponExistingOk:  true,
 			expectEarlyReturn: true,
 			expectSwappiness:  true,
 			expectCreateSwap:  false,
 		},
 		{
-			name:              "no active swap -> create 2GB swapfile and set swappiness=10",
+			name:              "inactive /swapfile exists on disk and activates -> enable, set swappiness=10, no recreation",
+			hasZram:           false,
+			swaponOutput:      "",
+			swapfileExists:    true,
+			swaponExistingOk:  true,
+			expectEarlyReturn: true,
+			expectSwappiness:  true,
+			expectCreateSwap:  false,
+		},
+		{
+			name:              "inactive corrupted /swapfile on disk fails swapon -> remove and recreate 2GB swapfile",
+			hasZram:           false,
+			swaponOutput:      "",
+			swapfileExists:    true,
+			swaponExistingOk:  false,
+			expectEarlyReturn: false,
+			expectSwappiness:  true,
+			expectCreateSwap:  true,
+		},
+		{
+			name:              "no active swap and no swapfile -> create 2GB swapfile and set swappiness=10",
 			hasZram:           false,
 			swaponOutput:      "",
 			swapfileExists:    false,
+			swaponExistingOk:  false,
 			expectEarlyReturn: false,
 			expectSwappiness:  true,
 			expectCreateSwap:  true,
@@ -234,7 +257,13 @@ func TestSetupSwapDecisionMatrix(t *testing.T) {
 			} else if strings.TrimSpace(tt.swaponOutput) != "" {
 				applySwappinessMock()
 			} else if tt.swapfileExists {
-				applySwappinessMock()
+				if tt.swaponExistingOk {
+					applySwappinessMock()
+				} else {
+					// Corrupt: remove and recreate
+					swapCreated = true
+					applySwappinessMock()
+				}
 			} else {
 				swapCreated = true
 				applySwappinessMock()

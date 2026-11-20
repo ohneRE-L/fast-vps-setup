@@ -573,7 +573,11 @@ func setupSwap() {
 		applySwappiness(10)
 		return
 	}
-	if fi, err := os.Stat("/swapfile"); err == nil && !fi.IsDir() {
+	if fi, err := os.Stat("/swapfile"); err == nil {
+		if fi.IsDir() {
+			log.Println("⚠️ /swapfile is a directory, cannot use or create swapfile at this path")
+			return
+		}
 		if err := exec.Command("swapon", "/swapfile").Run(); err != nil {
 			log.Printf("⚠️ Existing /swapfile cannot be activated (%v), recreating...\n", err)
 			_ = os.Remove("/swapfile")
@@ -875,14 +879,9 @@ func finalConfig(user, pass, path string) {
 	run("systemctl", "restart", "x-ui")
 }
 
-func getOptimalTCPBufferMax() int {
-	data, err := os.ReadFile("/proc/meminfo")
-	if err != nil {
-		return 16777216
-	}
-
+func parseOptimalTCPBuffer(meminfoContent string) int {
 	var memTotalKB int64
-	for _, line := range strings.Split(string(data), "\n") {
+	for _, line := range strings.Split(meminfoContent, "\n") {
 		if strings.HasPrefix(line, "MemTotal:") {
 			fields := strings.Fields(line)
 			if len(fields) >= 2 {
@@ -894,7 +893,7 @@ func getOptimalTCPBufferMax() int {
 
 	memTotalMB := memTotalKB / 1024
 	if memTotalMB <= 0 {
-		return 16777216
+		return 8388608
 	}
 	switch {
 	case memTotalMB <= 512:
@@ -906,6 +905,14 @@ func getOptimalTCPBufferMax() int {
 	default:
 		return 67108864
 	}
+}
+
+func getOptimalTCPBufferMax() int {
+	data, err := os.ReadFile("/proc/meminfo")
+	if err != nil {
+		return 8388608
+	}
+	return parseOptimalTCPBuffer(string(data))
 }
 
 func enableBBR() {

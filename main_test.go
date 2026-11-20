@@ -186,6 +186,7 @@ func TestSetupSwapDecisionMatrix(t *testing.T) {
 		hasZram           bool
 		swaponOutput      string
 		swapfileExists    bool
+		isDir             bool
 		swaponExistingOk  bool
 		expectEarlyReturn bool
 		expectSwappiness  bool
@@ -211,10 +212,33 @@ func TestSetupSwapDecisionMatrix(t *testing.T) {
 			expectCreateSwap:  false,
 		},
 		{
+			name:              "disk swap is already active without /swapfile -> set swappiness=10, do not create duplicate swapfile",
+			hasZram:           false,
+			swaponOutput:      "/dev/sda2 partition 1048576 0 -2",
+			swapfileExists:    false,
+			isDir:             false,
+			swaponExistingOk:  false,
+			expectEarlyReturn: true,
+			expectSwappiness:  true,
+			expectCreateSwap:  false,
+		},
+		{
+			name:              "/swapfile exists as a directory -> abort, do not create swapfile, do not overwrite directory",
+			hasZram:           false,
+			swaponOutput:      "",
+			swapfileExists:    true,
+			isDir:             true,
+			swaponExistingOk:  false,
+			expectEarlyReturn: true,
+			expectSwappiness:  false,
+			expectCreateSwap:  false,
+		},
+		{
 			name:              "inactive /swapfile exists on disk and activates -> enable, set swappiness=10, no recreation",
 			hasZram:           false,
 			swaponOutput:      "",
 			swapfileExists:    true,
+			isDir:             false,
 			swaponExistingOk:  true,
 			expectEarlyReturn: true,
 			expectSwappiness:  true,
@@ -225,6 +249,7 @@ func TestSetupSwapDecisionMatrix(t *testing.T) {
 			hasZram:           false,
 			swaponOutput:      "",
 			swapfileExists:    true,
+			isDir:             false,
 			swaponExistingOk:  false,
 			expectEarlyReturn: false,
 			expectSwappiness:  true,
@@ -235,6 +260,7 @@ func TestSetupSwapDecisionMatrix(t *testing.T) {
 			hasZram:           false,
 			swaponOutput:      "",
 			swapfileExists:    false,
+			isDir:             false,
 			swaponExistingOk:  false,
 			expectEarlyReturn: false,
 			expectSwappiness:  true,
@@ -257,7 +283,9 @@ func TestSetupSwapDecisionMatrix(t *testing.T) {
 			} else if strings.TrimSpace(tt.swaponOutput) != "" {
 				applySwappinessMock()
 			} else if tt.swapfileExists {
-				if tt.swaponExistingOk {
+				if tt.isDir {
+					// Directory: log and abort immediately
+				} else if tt.swaponExistingOk {
 					applySwappinessMock()
 				} else {
 					// Corrupt: remove and recreate
@@ -274,6 +302,59 @@ func TestSetupSwapDecisionMatrix(t *testing.T) {
 			}
 			if swapCreated != tt.expectCreateSwap {
 				t.Errorf("expected swapCreated=%v, got %v", tt.expectCreateSwap, swapCreated)
+			}
+		})
+	}
+}
+
+func TestOptimalTCPBufferMax(t *testing.T) {
+	tests := []struct {
+		name     string
+		meminfo  string
+		expected int
+	}{
+		{
+			name:     "256MB RAM",
+			meminfo:  "MemTotal:         262144 kB\nMemFree:           50000 kB\n",
+			expected: 8388608,
+		},
+		{
+			name:     "512MB RAM",
+			meminfo:  "MemTotal:         524288 kB\nMemFree:          100000 kB\n",
+			expected: 8388608,
+		},
+		{
+			name:     "1GB RAM",
+			meminfo:  "MemTotal:        1048576 kB\nMemFree:          200000 kB\n",
+			expected: 16777216,
+		},
+		{
+			name:     "2GB RAM",
+			meminfo:  "MemTotal:        2097152 kB\nMemFree:          500000 kB\n",
+			expected: 33554432,
+		},
+		{
+			name:     "4GB RAM",
+			meminfo:  "MemTotal:        4194304 kB\nMemFree:         1000000 kB\n",
+			expected: 67108864,
+		},
+		{
+			name:     "corrupt or empty meminfo fallback",
+			meminfo:  "garbage data without MemTotal",
+			expected: 8388608,
+		},
+		{
+			name:     "zero MemTotal fallback",
+			meminfo:  "MemTotal:              0 kB\n",
+			expected: 8388608,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := parseOptimalTCPBuffer(tt.meminfo)
+			if result != tt.expected {
+				t.Fatalf("expected buffer=%d, got %d", tt.expected, result)
 			}
 		})
 	}

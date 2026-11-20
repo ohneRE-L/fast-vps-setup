@@ -529,8 +529,13 @@ func installBasicUtilities() {
 }
 
 func hasZram() bool {
-	data, err := os.ReadFile("/proc/swaps")
-	return err == nil && strings.Contains(string(data), "zram")
+	if data, err := os.ReadFile("/proc/swaps"); err == nil && strings.Contains(string(data), "zram") {
+		return true
+	}
+	if out, err := exec.Command("swapon", "--show").Output(); err == nil && strings.Contains(string(out), "zram") {
+		return true
+	}
+	return false
 }
 
 func applySwappiness(val int) {
@@ -568,7 +573,7 @@ func setupSwap() {
 		applySwappiness(10)
 		return
 	}
-	if _, err := os.Stat("/swapfile"); err == nil {
+	if fi, err := os.Stat("/swapfile"); err == nil && !fi.IsDir() {
 		if err := exec.Command("swapon", "/swapfile").Run(); err != nil {
 			log.Printf("⚠️ Existing /swapfile cannot be activated (%v), recreating...\n", err)
 			_ = os.Remove("/swapfile")

@@ -667,6 +667,47 @@ func applySSHPort(port string) {
 	}
 }
 
+func tuneConntrack() {
+	conntrackPath := "/proc/sys/net/netfilter/nf_conntrack_max"
+	data, err := os.ReadFile(conntrackPath)
+	if err != nil {
+		_ = exec.Command("modprobe", "nf_conntrack").Run()
+		data, err = os.ReadFile(conntrackPath)
+		if err != nil {
+			return
+		}
+	}
+
+	curMax, err := strconv.Atoi(strings.TrimSpace(string(data)))
+	if err != nil || curMax <= 0 {
+		return
+	}
+
+	targetMax := curMax
+	if curMax < 65536 {
+		targetMax = 65536
+	}
+
+	_ = os.MkdirAll("/etc/modules-load.d", 0755)
+	if err := os.WriteFile("/etc/modules-load.d/conntrack.conf", []byte("nf_conntrack\n"), 0644); err != nil {
+		log.Printf("⚠️ Failed to write /etc/modules-load.d/conntrack.conf: %v\n", err)
+	}
+
+	conntrackCfg := fmt.Sprintf(`# Stateful firewall conntrack optimizations
+net.netfilter.nf_conntrack_max = %d
+net.netfilter.nf_conntrack_tcp_timeout_time_wait = 30
+net.netfilter.nf_conntrack_tcp_timeout_close_wait = 30
+net.netfilter.nf_conntrack_tcp_timeout_fin_wait = 30
+`, targetMax)
+
+	_ = os.MkdirAll("/etc/sysctl.d", 0755)
+	if err := os.WriteFile("/etc/sysctl.d/99-conntrack.conf", []byte(conntrackCfg), 0644); err != nil {
+		log.Printf("⚠️ Failed to write /etc/sysctl.d/99-conntrack.conf: %v\n", err)
+		return
+	}
+	run("sysctl", "--system")
+}
+
 func configureUFW(sshPort string) {
 	run("apt-get", "install", "-y", "ufw")
 	run("ufw", "default", "deny", "incoming")
@@ -680,6 +721,7 @@ func configureUFW(sshPort string) {
 	run("ufw", "deny", "40000", "comment", "warp")
 	run("ufw", "--force", "enable")
 	run("ufw", "reload")
+	tuneConntrack()
 }
 
 func installTelemt() {
@@ -791,30 +833,6 @@ func getOptimalTCPBufferMax() int {
 	}
 }
 
-func getConntrackSettings() string {
-	data, err := os.ReadFile("/proc/sys/net/netfilter/nf_conntrack_max")
-	if err != nil {
-		return ""
-	}
-	curMax, err := strconv.Atoi(strings.TrimSpace(string(data)))
-	if err != nil || curMax <= 0 {
-		return ""
-	}
-
-	targetMax := curMax
-	if curMax < 65536 {
-		targetMax = 65536
-	}
-
-	return fmt.Sprintf(`
-# Stateful firewall conntrack optimizations (active only if module is loaded)
-net.netfilter.nf_conntrack_max = %d
-net.netfilter.nf_conntrack_tcp_timeout_time_wait = 30
-net.netfilter.nf_conntrack_tcp_timeout_close_wait = 30
-net.netfilter.nf_conntrack_tcp_timeout_fin_wait = 30
-`, targetMax)
-}
-
 func enableBBR() {
 	run("modprobe", "tcp_bbr")
 	_ = os.MkdirAll("/etc/modules-load.d", 0755)
@@ -823,7 +841,6 @@ func enableBBR() {
 	}
 
 	maxBuf := getOptimalTCPBufferMax()
-	conntrackSettings := getConntrackSettings()
 
 	sysctlSettings := fmt.Sprintf(`# Network BBR, BDP & TFO Optimizations
 net.core.default_qdisc = fq
@@ -846,7 +863,7 @@ net.ipv4.tcp_max_syn_backlog = 4096
 net.ipv4.tcp_keepalive_time = 600
 net.ipv4.tcp_keepalive_intvl = 60
 net.ipv4.tcp_keepalive_probes = 3
-%s`, maxBuf, maxBuf, maxBuf, maxBuf, conntrackSettings)
+`, maxBuf, maxBuf, maxBuf, maxBuf)
 
 	_ = os.MkdirAll("/etc/sysctl.d", 0755)
 	if err := os.WriteFile("/etc/sysctl.d/99-bbr.conf", []byte(sysctlSettings), 0644); err != nil {

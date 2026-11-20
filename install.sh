@@ -17,7 +17,7 @@ NEED_INSTALL=0
 if ! command -v curl &> /dev/null; then
     NEED_INSTALL=1
 fi
-if ! dpkg -s ca-certificates &> /dev/null || [ ! -f /etc/ssl/certs/ca-certificates.crt ]; then
+if ! dpkg -s ca-certificates &> /dev/null; then
     NEED_INSTALL=1
 fi
 

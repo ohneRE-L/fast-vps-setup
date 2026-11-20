@@ -169,11 +169,15 @@ var enMsgs = Messages{
 
 var T Messages
 
-func run(name string, args ...string) {
+func run(name string, args ...string) error {
 	cmd := exec.Command(name, args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	_ = cmd.Run()
+	if err := cmd.Run(); err != nil {
+		log.Printf("⚠️ Command '%s %s' failed: %v\n", name, strings.Join(args, " "), err)
+		return err
+	}
+	return nil
 }
 
 func generateRandomString(n int) string {
@@ -423,7 +427,7 @@ func main() {
 		}
 	}
 
-	if configureUFWChoice || enableBBRChoice || install3xUI || installTelemtChoice || setupSwapChoice || updateSystemChoice {
+	if enableBBRChoice || install3xUI || installTelemtChoice {
 		fmt.Println("\n" + T.Ulimits)
 		setUlimits()
 	}
@@ -567,14 +571,18 @@ func setupSwap() {
 func setUlimits() {
 	var rLimit syscall.Rlimit
 	if err := syscall.Getrlimit(syscall.RLIMIT_NOFILE, &rLimit); err == nil {
-		rLimit.Max = 65535
-		rLimit.Cur = 65535
+		if rLimit.Cur < 65535 {
+			rLimit.Cur = 65535
+		}
+		if rLimit.Max < 524288 {
+			rLimit.Max = 524288
+		}
 		_ = syscall.Setrlimit(syscall.RLIMIT_NOFILE, &rLimit)
 	}
 
 	// Session limits
 	_ = os.MkdirAll("/etc/security/limits.d", 0755)
-	content := "* soft nofile 65535\n* hard nofile 65535\nroot soft nofile 65535\nroot hard nofile 65535\n"
+	content := "* soft nofile 65535\n* hard nofile 524288\nroot soft nofile 65535\nroot hard nofile 524288\n"
 	_ = os.WriteFile("/etc/security/limits.d/99-custom.conf", []byte(content), 0644)
 
 	// Systemd service limits
@@ -639,6 +647,7 @@ func applySSHPort(port string) {
 
 	if isSocket {
 		_ = os.MkdirAll("/etc/systemd/system/ssh.socket.d", 0755)
+		_ = os.Remove("/etc/systemd/system/ssh.socket.d/override.conf")
 		data := fmt.Sprintf("[Socket]\nListenStream=\nListenStream=%s\n", port)
 		_ = os.WriteFile("/etc/systemd/system/ssh.socket.d/listen.conf", []byte(data), 0644)
 		run("systemctl", "daemon-reload")
@@ -668,10 +677,20 @@ func tuneConntrack() {
 		targetMax = 65536
 	}
 
+	hashsize := targetMax / 4
+
 	_ = os.MkdirAll("/etc/modules-load.d", 0755)
 	if err := os.WriteFile("/etc/modules-load.d/conntrack.conf", []byte("nf_conntrack\n"), 0644); err != nil {
 		log.Printf("⚠️ Failed to write /etc/modules-load.d/conntrack.conf: %v\n", err)
 	}
+
+	_ = os.MkdirAll("/etc/modprobe.d", 0755)
+	if err := os.WriteFile("/etc/modprobe.d/conntrack.conf", []byte(fmt.Sprintf("options nf_conntrack hashsize=%d\n", hashsize)), 0644); err != nil {
+		log.Printf("⚠️ Failed to write /etc/modprobe.d/conntrack.conf: %v\n", err)
+	}
+
+	// Моментальное применение hashsize в работающее ядро
+	_ = os.WriteFile("/sys/module/nf_conntrack/parameters/hashsize", []byte(strconv.Itoa(hashsize)+"\n"), 0644)
 
 	conntrackCfg := fmt.Sprintf(`# Stateful firewall conntrack optimizations
 net.netfilter.nf_conntrack_max = %d
@@ -803,7 +822,12 @@ func getOptimalTCPBufferMax() int {
 	}
 
 	memTotalMB := memTotalKB / 1024
+	if memTotalMB <= 0 {
+		return 16777216
+	}
 	switch {
+	case memTotalMB <= 512:
+		return 8388608
 	case memTotalMB <= 1024:
 		return 16777216
 	case memTotalMB <= 2048:
@@ -982,6 +1006,9 @@ func setupSSHKey(key string) {
 }
 
 func disableSSHSocket() {
+	_ = os.Remove("/etc/systemd/system/ssh.socket.d/listen.conf")
+	_ = os.Remove("/etc/systemd/system/ssh.socket.d/override.conf")
+	run("systemctl", "daemon-reload")
 	run("systemctl", "stop", "ssh.socket")
 	run("systemctl", "disable", "ssh.socket")
 	if err := exec.Command("systemctl", "enable", "--now", "sshd").Run(); err != nil {

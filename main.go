@@ -524,6 +524,9 @@ func main() {
 		setupWarpWatchdog()
 	}
 
+	// Оптимизация conntrack, если модуль активен (UFW, Docker, Wireguard, nat)
+	tuneConntrack()
+
 	ip := getIP()
 	fmt.Println("\n" + strings.Repeat("=", 50))
 	fmt.Println(T.Success)
@@ -671,11 +674,7 @@ func tuneConntrack() {
 	conntrackPath := "/proc/sys/net/netfilter/nf_conntrack_max"
 	data, err := os.ReadFile(conntrackPath)
 	if err != nil {
-		_ = exec.Command("modprobe", "nf_conntrack").Run()
-		data, err = os.ReadFile(conntrackPath)
-		if err != nil {
-			return
-		}
+		return
 	}
 
 	curMax, err := strconv.Atoi(strings.TrimSpace(string(data)))
@@ -705,7 +704,7 @@ net.netfilter.nf_conntrack_tcp_timeout_fin_wait = 30
 		log.Printf("⚠️ Failed to write /etc/sysctl.d/99-conntrack.conf: %v\n", err)
 		return
 	}
-	run("sysctl", "--system")
+	run("sysctl", "-p", "/etc/sysctl.d/99-conntrack.conf")
 }
 
 func configureUFW(sshPort string) {

@@ -791,25 +791,68 @@ func getOptimalTCPBufferMax() int {
 	}
 }
 
+func getConntrackSettings() string {
+	data, err := os.ReadFile("/proc/sys/net/netfilter/nf_conntrack_max")
+	if err != nil {
+		return ""
+	}
+	curMax, err := strconv.Atoi(strings.TrimSpace(string(data)))
+	if err != nil || curMax <= 0 {
+		return ""
+	}
+
+	targetMax := curMax
+	if curMax < 65536 {
+		targetMax = 65536
+	}
+
+	return fmt.Sprintf(`
+# Stateful firewall conntrack optimizations (active only if module is loaded)
+net.netfilter.nf_conntrack_max = %d
+net.netfilter.nf_conntrack_tcp_timeout_time_wait = 30
+net.netfilter.nf_conntrack_tcp_timeout_close_wait = 30
+net.netfilter.nf_conntrack_tcp_timeout_fin_wait = 30
+`, targetMax)
+}
+
 func enableBBR() {
 	run("modprobe", "tcp_bbr")
 	_ = os.MkdirAll("/etc/modules-load.d", 0755)
-	_ = os.WriteFile("/etc/modules-load.d/bbr.conf", []byte("tcp_bbr\n"), 0644)
+	if err := os.WriteFile("/etc/modules-load.d/bbr.conf", []byte("tcp_bbr\n"), 0644); err != nil {
+		log.Printf("⚠️ Failed to write /etc/modules-load.d/bbr.conf: %v\n", err)
+	}
 
 	maxBuf := getOptimalTCPBufferMax()
+	conntrackSettings := getConntrackSettings()
+
 	sysctlSettings := fmt.Sprintf(`# Network BBR, BDP & TFO Optimizations
-net.core.default_qdisc=fq
-net.ipv4.tcp_congestion_control=bbr
-net.ipv4.tcp_fastopen=3
-net.core.rmem_max=%d
-net.core.wmem_max=%d
-net.ipv4.tcp_rmem=4096 87380 %d
-net.ipv4.tcp_wmem=4096 65536 %d
-net.ipv4.tcp_mtu_probing=1
-`, maxBuf, maxBuf, maxBuf, maxBuf)
+net.core.default_qdisc = fq
+net.ipv4.tcp_congestion_control = bbr
+net.ipv4.tcp_fastopen = 3
+net.core.rmem_max = %d
+net.core.wmem_max = %d
+net.ipv4.tcp_rmem = 4096 87380 %d
+net.ipv4.tcp_wmem = 4096 65536 %d
+net.ipv4.tcp_mtu_probing = 1
+
+# Socket reuse and connection queues
+net.ipv4.tcp_timestamps = 1
+net.ipv4.tcp_tw_reuse = 1
+net.ipv4.tcp_fin_timeout = 30
+net.core.somaxconn = 4096
+net.ipv4.tcp_max_syn_backlog = 4096
+
+# Keepalive for idle tunnels and long sessions
+net.ipv4.tcp_keepalive_time = 600
+net.ipv4.tcp_keepalive_intvl = 60
+net.ipv4.tcp_keepalive_probes = 3
+%s`, maxBuf, maxBuf, maxBuf, maxBuf, conntrackSettings)
 
 	_ = os.MkdirAll("/etc/sysctl.d", 0755)
-	_ = os.WriteFile("/etc/sysctl.d/99-bbr.conf", []byte(sysctlSettings), 0644)
+	if err := os.WriteFile("/etc/sysctl.d/99-bbr.conf", []byte(sysctlSettings), 0644); err != nil {
+		log.Printf("⚠️ Failed to write /etc/sysctl.d/99-bbr.conf: %v\n", err)
+		return
+	}
 	run("sysctl", "--system")
 }
 

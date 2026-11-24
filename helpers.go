@@ -45,7 +45,8 @@ func isSSHSocketActive(activeOut, enabledOut string) bool {
 }
 
 func hasActiveSSHDInclude(cfg string) bool {
-	return reActiveSSHDInclude.MatchString(cfg)
+	globalPart, _, _ := splitAtFirstMatch(cfg)
+	return reActiveSSHDInclude.MatchString(globalPart)
 }
 
 func splitAtFirstMatch(cfg string) (globalPart, matchPart string, hasMatch bool) {
@@ -177,7 +178,8 @@ func hasPasswordAuthBeforeInclude(cfg string) bool {
 func parseSSHPortFromConfig(cfg string) string {
 	if match := reActivePortValue.FindStringSubmatch(cfg); len(match) > 1 {
 		if isValidPort(match[1]) {
-			return match[1]
+			port, _ := strconv.Atoi(match[1])
+			return strconv.Itoa(port)
 		}
 	}
 	return ""
@@ -193,7 +195,8 @@ func parseSSHSocketListenPort(showOutput string) string {
 		for _, field := range fields {
 			if match := reSSHSocketListenPortEnd.FindStringSubmatch(field); len(match) > 1 {
 				if isValidPort(match[1]) {
-					return match[1]
+					port, _ := strconv.Atoi(match[1])
+					return strconv.Itoa(port)
 				}
 			}
 		}
@@ -225,7 +228,8 @@ func parseSSHSocketDropInPort(confContent string) string {
 			val = val[idx+1:]
 		}
 		if isValidPort(val) {
-			port = val
+			p, _ := strconv.Atoi(val)
+			port = strconv.Itoa(p)
 		}
 	}
 	return port
@@ -320,7 +324,7 @@ func isValidSSHPublicKey(k string) bool {
 	}
 
 	algoLen := int(binary.BigEndian.Uint32(decoded[:4]))
-	if algoLen <= 0 || 4+algoLen >= len(decoded) {
+	if algoLen <= 0 || uint64(algoLen) >= uint64(len(decoded)-4) {
 		return false
 	}
 	return string(decoded[4:4+algoLen]) == keyType

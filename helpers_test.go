@@ -60,6 +60,8 @@ func TestHasActiveSSHDInclude(t *testing.T) {
 		{"commented include", "#Include /etc/ssh/sshd_config.d/*.conf\nPort 22\n", false},
 		{"spaced commented include", "  # Include /etc/ssh/sshd_config.d/*.conf\n", false},
 		{"no include", "Port 22\nPasswordAuthentication yes\n", false},
+		{"include inside Match block", "Port 22\nPasswordAuthentication yes\nMatch User sftp\n\tInclude /etc/ssh/sshd_config.d/*.conf\n", false},
+		{"include before Match block", "Include /etc/ssh/sshd_config.d/*.conf\nPort 22\nMatch User sftp\n\tX11Forwarding no\n", true},
 	}
 
 	for _, tt := range tests {
@@ -242,6 +244,11 @@ func TestIsValidSSHPublicKey(t *testing.T) {
 	mismatchedWire := makeWireSSHKey("ssh-rsa", "ssh-ed25519", "user@host", make([]byte, 36))
 	noPayloadWire := makeWireSSHKey("ssh-ed25519", "ssh-ed25519", "", nil)
 
+	overflowRaw := make([]byte, 4+len("ssh-ed25519")+8)
+	binary.BigEndian.PutUint32(overflowRaw[:4], 0x7fffffff)
+	copy(overflowRaw[4:], "ssh-ed25519")
+	overflowKey := "ssh-ed25519 " + base64.StdEncoding.EncodeToString(overflowRaw)
+
 	tests := []struct {
 		name string
 		key  string
@@ -255,6 +262,7 @@ func TestIsValidSSHPublicKey(t *testing.T) {
 		{"non-base64 body", "ssh-ed25519 not-base64!!!", false},
 		{"wire algorithm mismatch", mismatchedWire, false},
 		{"wire header only without key payload", noPayloadWire, false},
+		{"oversized 0x7fffffff algoLen (32-bit overflow check)", overflowKey, false},
 		{"newline injection", validEd25519 + "\ncommand=\"id\" " + validRSA, false},
 		{"carriage return injection", validEd25519 + "\r", false},
 		{"control char injection", validEd25519 + "\x00", false},
@@ -444,6 +452,25 @@ func TestReadLineEOF(t *testing.T) {
 	}
 }
 
+func TestParseSSHPortFromConfig(t *testing.T) {
+	tests := []struct {
+		name string
+		cfg  string
+		want string
+	}{
+		{"standard Port", "Port 2222\n", "2222"},
+		{"leading zero normalized", "Port 0443\n", "443"},
+		{"commented Port ignored", "#Port 2222\n", ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := parseSSHPortFromConfig(tt.cfg); got != tt.want {
+				t.Fatalf("got %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestParseSSHSocketListenPort(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -452,6 +479,7 @@ func TestParseSSHSocketListenPort(t *testing.T) {
 	}{
 		{"ipv6 wildcard stream", "[::]:2222 (Stream)\n", "2222"},
 		{"ipv4 stream", "0.0.0.0:9049 (Stream)\n", "9049"},
+		{"leading zero normalized", "0.0.0.0:0443 (Stream)\n", "443"},
 		{"specific ipv6 literal", "[2001:db8::1]:2222 (Stream)\n", "2222"},
 		{"bare port", "2222 (Stream)\n", "2222"},
 		{"empty", "", ""},
@@ -469,6 +497,10 @@ func TestParseSSHSocketDropInPort(t *testing.T) {
 	conf := "[Socket]\nListenStream=\nListenStream=2222\n"
 	if got := parseSSHSocketDropInPort(conf); got != "2222" {
 		t.Fatalf("got %q, want 2222", got)
+	}
+	leadingZero := "[Socket]\nListenStream=\nListenStream=0443\n"
+	if got := parseSSHSocketDropInPort(leadingZero); got != "443" {
+		t.Fatalf("got %q, want 443", got)
 	}
 	resetOnly := "[Socket]\nListenStream=\n"
 	if got := parseSSHSocketDropInPort(resetOnly); got != "" {

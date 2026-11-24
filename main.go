@@ -661,7 +661,9 @@ func applySSHPort(port string) error {
 	ufwCmd.Env = append(os.Environ(), "LC_ALL=C")
 	if ufwStatus, err := ufwCmd.Output(); err == nil && strings.Contains(string(ufwStatus), "Status: active") {
 		if err := run("ufw", "prepend", "allow", port+"/tcp", "comment", "SSH"); err != nil {
-			_ = run("ufw", "allow", port+"/tcp", "comment", "SSH")
+			if err := run("ufw", "allow", port+"/tcp", "comment", "SSH"); err != nil {
+				return fmt.Errorf("failed to allow SSH port %s in active UFW: %w", port, err)
+			}
 		}
 		_ = run("ufw", "reload")
 	}
@@ -729,23 +731,42 @@ func applySSHPort(port string) error {
 
 	if isSSHSocketActive(string(outActive), string(outEnabled)) {
 		if err := os.MkdirAll("/etc/systemd/system/ssh.socket.d", 0755); err != nil {
+			rollback()
 			return fmt.Errorf("failed to create ssh.socket.d: %w", err)
 		}
-		_ = os.Remove("/etc/systemd/system/ssh.socket.d/override.conf")
+		listenConfPath := "/etc/systemd/system/ssh.socket.d/listen.conf"
+		prevListenConf, prevListenErr := os.ReadFile(listenConfPath)
+		restoreListenConf := func() {
+			if prevListenErr == nil {
+				_ = os.WriteFile(listenConfPath, prevListenConf, 0644)
+			} else if os.IsNotExist(prevListenErr) {
+				_ = os.Remove(listenConfPath)
+			}
+		}
 		data := fmt.Sprintf("[Socket]\nListenStream=\nListenStream=%s\n", port)
-		if err := os.WriteFile("/etc/systemd/system/ssh.socket.d/listen.conf", []byte(data), 0644); err != nil {
+		if err := os.WriteFile(listenConfPath, []byte(data), 0644); err != nil {
+			restoreListenConf()
+			rollback()
 			return fmt.Errorf("failed to write ssh.socket listen.conf: %w", err)
 		}
+		_ = os.Remove("/etc/systemd/system/ssh.socket.d/override.conf")
 		if err := run("systemctl", "daemon-reload"); err != nil {
+			restoreListenConf()
+			_ = run("systemctl", "daemon-reload")
+			rollback()
 			return fmt.Errorf("systemctl daemon-reload failed: %w", err)
 		}
 		if err := run("systemctl", "restart", "ssh.socket"); err != nil {
+			restoreListenConf()
+			_ = run("systemctl", "daemon-reload")
+			rollback()
 			return fmt.Errorf("systemctl restart ssh.socket failed: %w", err)
 		}
 		_ = run("systemctl", "restart", "ssh")
 	} else {
 		if err := exec.Command("systemctl", "restart", "sshd").Run(); err != nil {
 			if err := run("systemctl", "restart", "ssh"); err != nil {
+				rollback()
 				return fmt.Errorf("failed to restart sshd/ssh: %w", err)
 			}
 		}
@@ -851,9 +872,13 @@ func downloadScriptToTemp(rawURL string) (string, error) {
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("unexpected HTTP status %d for %s", resp.StatusCode, rawURL)
 	}
-	data, err := io.ReadAll(io.LimitReader(resp.Body, 5<<20))
+	const maxScriptBytes = 5 << 20
+	data, err := io.ReadAll(io.LimitReader(resp.Body, maxScriptBytes+1))
 	if err != nil {
 		return "", fmt.Errorf("failed reading script body: %w", err)
+	}
+	if int64(len(data)) > maxScriptBytes {
+		return "", fmt.Errorf("downloaded script from %s exceeds %d bytes limit", rawURL, maxScriptBytes)
 	}
 	if !isValidScriptContent(data) {
 		return "", fmt.Errorf("downloaded content from %s is empty or not a valid shell script", rawURL)
@@ -977,8 +1002,12 @@ func finalConfig(user, pass, path string) error {
 		return fmt.Errorf("x-ui setting command failed: %w", err)
 	}
 
-	if fi, err := os.Stat("/usr/local/x-ui/x-ui.sh"); err != nil || fi.IsDir() {
+	fi, err := os.Stat("/usr/local/x-ui/x-ui.sh")
+	if err != nil {
 		return fmt.Errorf("/usr/local/x-ui/x-ui.sh not found: %w", err)
+	}
+	if fi.IsDir() {
+		return fmt.Errorf("/usr/local/x-ui/x-ui.sh is a directory")
 	}
 	_ = os.Remove("/usr/bin/x-ui")
 	if err := os.Symlink("/usr/local/x-ui/x-ui.sh", "/usr/bin/x-ui"); err != nil {
@@ -1254,7 +1283,7 @@ func setupSSHKey(key string) {
 		}
 		if needMainCfgUpdate {
 			fallbackMain := updateLegacySSHDPasswordAuth(string(prevMainCfg), false)
-			if fallbackMain != string(prevMainCfg) {
+			if mainCfgModified || fallbackMain != string(prevMainCfg) {
 				if err := os.WriteFile("/etc/ssh/sshd_config", []byte(fallbackMain), 0644); err != nil {
 					log.Printf("⚠️ Failed to rewrite /etc/ssh/sshd_config: %v\n", err)
 				} else {

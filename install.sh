@@ -53,7 +53,7 @@ esac
 echo -e "${GREEN}>>> Downloading VPS Shielder (${BIN_NAME})...${NC}"
 
 RELEASE_TAG="${FAST_VPS_VERSION:-latest}"
-if [[ ! "$RELEASE_TAG" =~ ^(latest|v?[0-9A-Za-z._-]+)$ ]] || [[ "$RELEASE_TAG" == *".."* ]]; then
+if [[ ! "$RELEASE_TAG" =~ ^(latest|v?[0-9A-Za-z._-]+)$ ]] || [[ "$RELEASE_TAG" == "." ]] || [[ "$RELEASE_TAG" == *".."* ]]; then
     echo -e "${RED}Error: Invalid FAST_VPS_VERSION format: $RELEASE_TAG${NC}" >&2
     exit 1
 fi

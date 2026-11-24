@@ -33,7 +33,7 @@ An automated **Go** script for fast and secure configuration of a new VPS server
 Simply copy and paste this command into the terminal of your new server:
 
 ```bash
-bash -c "$(curl -sL https://raw.githubusercontent.com/ohneRE-L/fast-vps-setup/main/install.sh)"
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/ohneRE-L/fast-vps-setup/main/install.sh)"
 ```
 
 ---
@@ -86,7 +86,7 @@ Upon completion, the script will output configuration frames for your chosen ser
 Просто скопируйте и вставьте эту команду в терминал вашего нового сервера:
 
 ```bash
-bash -c "$(curl -sL https://raw.githubusercontent.com/ohneRE-L/fast-vps-setup/main/install.sh)"
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/ohneRE-L/fast-vps-setup/main/install.sh)"
 ```
 
 ---
